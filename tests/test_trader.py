@@ -268,6 +268,23 @@ class EngineReplay(unittest.TestCase):
         self.assertEqual(broker.fills, [])
         self.assertIn("not enough daily history", [e for e in log if e["action"] == "skip_signal"][0]["reasoning"])
 
+    def test_stale_data_blocks_entries(self):
+        closes = fixtures.selloff_then(100, 20, 0.1, [98.2 + 0.1 * i for i in range(30)])
+        fixtures.write_symbol(self.data, "AAPL", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)})
+
+        class LaggingFeed(ReplayFeed):  # newest bar is always 5 minutes behind the clock
+            def minute_bars(self, symbol, now):
+                return super().minute_bars(symbol, now - timedelta(minutes=5))
+
+        feed = LaggingFeed(self.data)
+        decisions = DecisionLog("trader", log_dir=self.root / "logs")
+        engine = TraderEngine({**BASE_CFG}, SimBroker(1000, "cash", slippage_bps=0), feed, feed.symbols(),
+                              self.root / "state", decisions, self.logger, Notifier({}, self.logger))
+        for now in feed.timeline():
+            engine.step(now)
+        self.assertIsNone(engine.position)
+        self.assertIn("stale data", [e for e in decisions.read() if e["action"] == "skip_signal"][0]["reasoning"])
+
     def test_overnight_gap_trips_kill_switch_and_flattens(self):
         day1 = fixtures.selloff_then(100, 20, 0.1, [98.1])  # enters long ~98.1, holds flat
         day2 = [94.0] * 10                                  # gaps down ~4% at the open

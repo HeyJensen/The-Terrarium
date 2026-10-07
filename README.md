@@ -20,10 +20,16 @@ Python 3.11+, standard library only. No dependencies to install.
 
 ```bash
 cp config/.env.example config/.env       # fill in values; the file is git-ignored
-python -m unittest                        # 32 tests
+python -m unittest                        # 38 tests
 python agents/trader/run.py --task check  # shows limits and whether live orders are possible
 python -m dashboard.server                # http://127.0.0.1:8787/api/dashboard
+
+# Dry run on live Yahoo Finance data (no orders reach any broker)
+python agents/trader/run.py --task prefetch   # before 9:30 ET: a year of daily bars
+python agents/trader/run.py --task trade      # minute loop, Ctrl+C to stop
 ```
+
+Market data comes from Yahoo Finance; see `docs/market-data-yahoo.md` for its limits.
 
 ## Safety switches
 

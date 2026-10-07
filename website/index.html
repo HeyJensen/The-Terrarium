@@ -1,0 +1,1221 @@
+<title>The Terrarium</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a glass tank fills the stage (hives on stumps and ledges, a beating
+   heart in the middle, bees and ants carrying work); a voice console sits
+   under it; the hive card is on the right (below on phones); heartbeat and
+   outbox run along the bottom. Deliberately single-theme: a terrarium at night. */
+:root {
+  color-scheme: dark;
+  --night: #040807;
+  --glass: #0b1412;
+  --glass-2: #12201d;
+  --line: #1f3530;
+  --ink: #e8f2ee;
+  --ink-dim: #93aaa3;
+  --ink-faint: #5d7570;
+  --lume: #59f0d4;          /* bioluminescent teal: the heart and veins */
+  --lume-soft: rgba(89, 240, 212, 0.13);
+  --honey: #ffb347;         /* glowing comb */
+  --honey-soft: rgba(255, 179, 71, 0.12);
+  --gain: #7ee8a0;
+  --loss: #ff7d8a;
+  --f-display: "Syne", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Figtree", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+html, body { height: 100%; }
+body { background: var(--night); color: var(--ink); font: 15px/1.5 var(--f-body); -webkit-font-smoothing: antialiased; }
+.app { min-height: 100%; display: grid; grid-template-rows: auto 1fr auto; gap: 14px; padding-inline: 20px; padding-block: 16px 20px; box-sizing: border-box; }
+header.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+.brand { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.brand h1 { margin: 0; font-family: var(--f-display); font-weight: 800; font-size: 26px; letter-spacing: 0.06em; text-transform: uppercase; line-height: 1; }
+.brand .sub { font-family: var(--f-mono); font-size: 12px; color: var(--ink-dim); letter-spacing: 0.04em; }
+.vitals { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: center; }
+.vital { display: flex; flex-direction: column; gap: 1px; }
+.vital .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); }
+.vital .v { font-family: var(--f-mono); font-size: 15px; font-variant-numeric: tabular-nums; }
+.source { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; background: var(--glass); }
+.source button { appearance: none; border: 0; background: transparent; color: var(--ink-dim); font: 500 12px var(--f-body); padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+.source button[aria-pressed="true"] { background: var(--lume-soft); color: var(--ink); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--lume); outline-offset: 2px; }
+
+main.body { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; min-height: 0; }
+.left { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 12px; min-height: 0; min-width: 0; }
+.stage { position: relative; min-height: 380px; border-radius: 20px; overflow: hidden; background: #020403; border: 1px solid var(--line); }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: manipulation; }
+.stage .banner { position: absolute; left: 14px; top: 12px; right: 14px; display: flex; flex-wrap: wrap; gap: 8px; pointer-events: none; }
+.tag { font-family: var(--f-mono); font-size: 11px; letter-spacing: 0.04em; padding: 3px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink-dim); background: rgba(2, 5, 4, 0.75); }
+.tag.warn { color: var(--honey); border-color: rgba(255, 179, 71, 0.5); background: rgba(30, 20, 6, 0.85); font-size: 12.5px; font-weight: 500; padding: 5px 12px; }
+.tag.err { color: #ff8a95; border-color: rgba(255, 107, 122, 0.4); }
+.stage .hint { position: absolute; right: 14px; bottom: 10px; font-family: var(--f-mono); font-size: 11px; color: var(--ink-faint); pointer-events: none; }
+
+.voice { background: var(--glass); border: 1px solid var(--line); border-radius: 18px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.voice-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.mic { appearance: none; width: 46px; height: 46px; flex: none; border-radius: 50%; border: 1px solid rgba(89, 240, 212, 0.45); background: radial-gradient(circle at 50% 40%, rgba(89, 240, 212, 0.28), rgba(89, 240, 212, 0.06)); color: var(--lume); cursor: pointer; display: grid; place-items: center; }
+.mic svg { width: 20px; height: 20px; }
+.mic[data-on="true"] { background: var(--lume); color: var(--night); box-shadow: 0 0 0 6px rgba(89, 240, 212, 0.15), 0 0 24px rgba(89, 240, 212, 0.6); animation: breathe 1.4s ease-in-out infinite; }
+@keyframes breathe { 50% { box-shadow: 0 0 0 10px rgba(89, 240, 212, 0.08), 0 0 30px rgba(89, 240, 212, 0.7); } }
+form.ask { flex: 1 1 220px; display: flex; gap: 8px; min-width: 0; }
+form.ask input { flex: 1; min-width: 0; background: var(--night); border: 1px solid var(--line); border-radius: 12px; color: var(--ink); font: 15px var(--f-body); padding: 10px 12px; }
+form.ask input::placeholder { color: var(--ink-faint); }
+.btn { appearance: none; border: 1px solid var(--line); background: var(--glass-2); color: var(--ink); font: 600 13px var(--f-body); padding: 10px 14px; border-radius: 12px; cursor: pointer; white-space: nowrap; }
+.btn.brief { border-color: rgba(255, 179, 71, 0.4); color: var(--honey); }
+.btn.brief[data-ready="true"] { background: var(--honey-soft); box-shadow: 0 0 18px rgba(255, 179, 71, 0.25); }
+.btn.icon { padding: 10px 11px; color: var(--ink-dim); display: grid; place-items: center; }
+.btn.icon[aria-pressed="false"] { opacity: 0.5; }
+.answer { font-size: 15px; line-height: 1.5; color: var(--ink); min-height: 1.5em; overflow-wrap: anywhere; }
+.answer .who { font: 500 11px var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--lume); margin-right: 8px; }
+.answer.muted { color: var(--ink-dim); }
+.voice-note { font-size: 12px; color: var(--ink-faint); }
+.voice-note:empty { display: none; }
+
+aside.card { background: var(--glass); border: 1px solid var(--line); border-radius: 20px; padding: 20px; display: flex; flex-direction: column; gap: 18px; min-width: 0; overflow: auto; }
+.card .eyebrow { font-family: var(--f-mono); font-size: 11px; color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase; }
+.card h2 { margin: 2px 0 0; font-family: var(--f-display); font-weight: 800; font-size: 30px; letter-spacing: 0.03em; text-transform: uppercase; line-height: 1.05; text-wrap: balance; }
+.card .desc { margin: 8px 0 0; color: var(--ink-dim); font-size: 14px; }
+.sample-note { font-size: 13px; color: var(--honey); background: var(--honey-soft); border: 1px solid rgba(255, 179, 71, 0.35); border-radius: 10px; padding: 8px 12px; }
+.pill { display: inline-flex; align-items: center; gap: 7px; font: 500 12px var(--f-mono); letter-spacing: 0.05em; padding: 4px 10px; border-radius: 999px; border: 1px solid currentColor; width: fit-content; }
+.pill::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; }
+.task { font-family: var(--f-mono); font-size: 14px; line-height: 1.45; padding: 12px 14px; border-radius: 12px; background: var(--night); border: 1px solid var(--line); overflow-wrap: anywhere; min-height: 1.45em; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.stat .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint); }
+.stat .v { font-family: var(--f-mono); font-size: 18px; font-variant-numeric: tabular-nums; }
+.section-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.section-h h3 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-dim); font-weight: 600; }
+.section-h span { font-family: var(--f-mono); font-size: 11px; color: var(--ink-faint); }
+ol.log { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; }
+ol.log li { display: grid; grid-template-columns: 58px 10px minmax(0, 1fr); gap: 8px; align-items: baseline; font-size: 13px; padding: 6px 0; border-top: 1px solid var(--line); }
+ol.log li:first-child { border-top: 0; }
+ol.log time { font-family: var(--f-mono); font-size: 11px; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+ol.log .d { width: 7px; height: 7px; border-radius: 50%; align-self: center; }
+ol.log .t { min-width: 0; overflow-wrap: anywhere; }
+ol.log .t b { font-weight: 600; }
+ol.log .t small { display: block; color: var(--ink-dim); font-size: 12.5px; }
+.empty { color: var(--ink-faint); font-size: 13px; margin: 8px 0 0; }
+.howto { font-size: 13px; color: var(--ink-dim); background: var(--night); border: 1px dashed var(--line); border-radius: 12px; padding: 12px 14px; }
+.howto code { font-family: var(--f-mono); font-size: 12px; color: var(--ink); }
+
+footer.strip { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; }
+.panel { background: var(--glass); border: 1px solid var(--line); border-radius: 18px; padding: 14px 16px; min-width: 0; }
+.hb svg { width: 100%; height: 60px; display: block; margin-top: 10px; }
+.hb .axis { display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-faint); margin-top: 4px; }
+.outbox ol.log { max-height: 112px; overflow: auto; }
+
+@media (min-width: 961px) { .app { height: 100%; grid-template-rows: auto minmax(0, 1fr) auto; } }
+@media (max-width: 960px) {
+  main.body { grid-template-columns: minmax(0, 1fr); }
+  .left { grid-template-rows: auto auto; }
+  .stage { min-height: 0; aspect-ratio: 3 / 2.1; max-width: 100%; }
+  footer.strip { grid-template-columns: minmax(0, 1fr); }
+  .app { padding-inline: 16px; }
+}
+@media (max-width: 520px) {
+  .stage { aspect-ratio: 1 / 0.9; }
+  .brand h1 { font-size: 22px; }
+  .card h2 { font-size: 26px; }
+  .stage .hint { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .mic[data-on="true"] { animation: none; } }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>The Terrarium</h1>
+      <span class="sub">specimen 001 · night view</span>
+    </div>
+    <div class="vitals">
+      <div class="vital"><span class="k">Hives alive</span><span class="v" id="v-alive">–</span></div>
+      <div class="vital"><span class="k">P&amp;L today</span><span class="v" id="v-pnl">–</span></div>
+      <div class="vital"><span class="k">Heartbeats, last hour</span><span class="v" id="v-hb">–</span></div>
+      <div class="source" role="group" aria-label="Data source">
+        <button id="src-sample" type="button" aria-pressed="true">Sample data</button>
+        <button id="src-live" type="button" aria-pressed="false">Live</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="body">
+    <div class="left">
+      <section class="stage" aria-label="The terrarium. Each glowing hive is an agent; the heart in the middle is the orchestrator.">
+        <canvas id="tank"></canvas>
+        <div class="banner" id="banner"></div>
+        <div class="hint">Tap a hive to look inside</div>
+      </section>
+
+      <section class="voice" aria-label="Talk to the Terrarium">
+        <div class="voice-row">
+          <button class="mic" id="mic" type="button" aria-label="Talk to the Terrarium" data-on="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+          </button>
+          <form class="ask" id="ask">
+            <input id="q" type="text" autocomplete="off" aria-label="Ask the Terrarium" placeholder="Ask: how is the trader doing?">
+            <button class="btn" type="submit">Ask</button>
+          </form>
+          <button class="btn brief" id="brief" type="button" data-ready="false">Daily briefing</button>
+          <button class="btn icon" id="speak-toggle" type="button" aria-pressed="true" aria-label="Read answers aloud">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+          </button>
+        </div>
+        <div class="answer muted" id="answer">Tap the mic and ask what any hive is doing, or play today's briefing.</div>
+        <div class="voice-note" id="voice-note"></div>
+      </section>
+    </div>
+
+    <aside class="card" id="card" aria-live="polite">
+      <div>
+        <div class="eyebrow" id="c-eyebrow">Hive</div>
+        <h2 id="c-name">Trader</h2>
+        <p class="desc" id="c-desc"></p>
+      </div>
+      <div id="c-live">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="sample-note" id="c-sample" hidden>Sample session. These trades, prices and P&amp;L are made up; the Trader isn't connected to Robinhood yet.</div>
+          <span class="pill" id="c-pill">watching</span>
+          <div class="task" id="c-task"></div>
+          <div class="stats">
+            <div class="stat"><span class="k">Tasks today</span><span class="v" id="c-tasks">0</span></div>
+            <div class="stat"><span class="k">P&amp;L</span><span class="v" id="c-pnl">$0.00</span></div>
+            <div class="stat"><span class="k">Last report</span><span class="v" id="c-updated">–</span></div>
+          </div>
+        </div>
+      </div>
+      <div id="c-dormant" hidden><div class="howto" id="c-howto"></div></div>
+      <div id="c-activity">
+        <div class="section-h"><h3>What it's doing</h3><span>reports seen on this page</span></div>
+        <ol class="log" id="c-log"></ol>
+      </div>
+      <div id="c-work">
+        <div class="section-h"><h3>Finished work</h3><span id="c-work-n"></span></div>
+        <ol class="log" id="c-outbox"></ol>
+      </div>
+    </aside>
+  </main>
+
+  <footer class="strip">
+    <div class="panel hb">
+      <div class="section-h"><h3>Heartbeat</h3><span>reports per 15 min, last 24 h</span></div>
+      <svg id="hb" viewBox="0 0 960 60" preserveAspectRatio="none" aria-label="Activity over the last 24 hours"></svg>
+      <div class="axis"><span>24h ago</span><span>18h</span><span>12h</span><span>6h</span><span>now</span></div>
+    </div>
+    <div class="panel outbox">
+      <div class="section-h"><h3>Outbox</h3><span>all agents, newest first</span></div>
+      <ol class="log" id="outbox"></ol>
+    </div>
+  </footer>
+</div>
+
+<script>
+/* ------------------------------------------------------------------ *
+ * Data source switch.
+ *   source: "sample" runs a simulated session in the exact shape of
+ *           GET /api/dashboard. "live" polls the real dashboard API.
+ *   apiBase: where dashboard/server.py is listening.
+ * Opening this file locally with ?api=http://127.0.0.1:8787 (or #live)
+ * starts in live mode.
+ * ------------------------------------------------------------------ */
+const TERRARIUM_CONFIG = {
+  source: "sample",
+  apiBase: "http://127.0.0.1:8787",
+  pollMs: 5000,
+  ownerName: "Nathan",
+};
+
+/* Hives the terrarium grows into. Agents from agents/manifest.json fill these
+   by name; any other registered agent gets a new hive in a spare spot.
+   u, v: position inside the tank (0..1). r: hive radius as a share of tank height. */
+const PLANNED = [
+  { name: "orchestrator", label: "Heart", core: true, u: 0.515, v: 0.5, r: 0.15,
+    role: "The orchestrator lives here from Phase 2: it assigns tasks, watches every hive's health and writes the daily briefing. Until then it beats with the organism's heartbeat." },
+  { name: "trader", u: 0.2, v: 0.42, r: 0.165, base: "stump",
+    role: "RSI(14) on 1-minute bars across the 10 highest relative-volume S&P 500 names, filtered by the daily 50/200 EMA trend. Buys at RSI 15 or below, shorts at 85 or above. One position at a time; −1% stop that trails 1% behind once a trade is up 2%." },
+  { name: "content", u: 0.8, v: 0.27, r: 0.145, base: "ledge",
+    role: "Drafts blog posts, YouTube scripts and video hooks for the build log." },
+  { name: "etsy", u: 0.82, v: 0.69, r: 0.135, base: "mound",
+    role: "Researches niches and drafts listings. You approve before anything goes up." },
+  { name: "social", u: 0.4, v: 0.17, r: 0.09, base: "vine",
+    role: "Takes approved content and publishes it across Instagram, YouTube and TikTok." },
+  { name: "gigs", u: 0.36, v: 0.76, r: 0.085, base: "mound",
+    role: "Drafts Fiverr gigs, like YouTube thumbnail packages." },
+];
+const SPARE_SPOTS = [{ u: 0.64, v: 0.16, r: 0.08, base: "vine" }, { u: 0.63, v: 0.8, r: 0.08, base: "mound" }, { u: 0.08, v: 0.15, r: 0.07, base: "vine" }];
+
+const STATUS_COLOR = { watching: "#59f0d4", in_position: "#ffb347", idle: "#f0d39a", sleeping: "#a68bff", halted: "#ff6b7a" };
+const STATUS_WORDS = { watching: "watching", in_position: "in a position", idle: "idle", sleeping: "sleeping", halted: "halted" };
+const colorFor = s => STATUS_COLOR[s] || "#9fb3ad";
+
+/* ----------------------------- sample data ----------------------------- */
+const isoOf = t => new Date(t).toISOString().replace(/\.\d{3}Z$/, "+00:00");
+/* A signal is the Terrarium telling bots "take this trade". The ledger scores
+   every signal as if it were taken at its signal price, with no one-at-a-time
+   limit. Shape matches GET /api/signals (see README). */
+const STOP_PCT = 1, TRIGGER_PCT = 2, TRAIL_PCT = 1;
+function scoreSignal(s, price) {
+  // exits per strategy v0.2: −1% stop; once +2% is reached the stop trails 1% behind the best price
+  const dir = s.side === "short" ? -1 : 1;
+  s.last_price = price;
+  const gain = dir * (price / s.price - 1) * 100;
+  s.best_pct = Math.max(s.best_pct ?? 0, gain);
+  const stopAt = s.best_pct >= TRIGGER_PCT ? s.best_pct - TRAIL_PCT : -STOP_PCT;
+  s.pnl_pct = Math.round(gain * 100) / 100;
+  if (gain <= stopAt) {
+    s.status = "closed";
+    s.exit_price = s.price * (1 + dir * stopAt / 100);
+    s.pnl_pct = Math.round(stopAt * 100) / 100;
+    s.exit_reason = s.best_pct >= TRIGGER_PCT ? "trailing stop" : "stop loss";
+    s.exit_ts = isoOf(Date.now());
+  }
+}
+
+function makeSample() {
+  const now = Date.now();
+  const heartbeat = [];
+  const start = Math.floor((now - 24 * 3600e3) / 60e3) * 60e3;
+  for (let m = start; m <= now; m += 60e3) {
+    const minsAgo = (now - m) / 60e3;
+    const p = minsAgo < 390 ? 0.85 : (minsAgo > 1080 && minsAgo < 1440 ? 0.08 : 0.03);
+    if (Math.random() < p) heartbeat.push({ minute: isoOf(m), events: 1 + (Math.random() < 0.35 ? 1 : 0) });
+  }
+  const sig = (minsAgo, symbol, side, price, rsi, rel, pnl, reason) => ({
+    id: `s${Math.round((now - minsAgo * 60e3) / 1000)}${symbol}`, agent: "trader", ts: isoOf(now - minsAgo * 60e3), symbol, side, price, rsi, rel_volume: rel,
+    status: "closed", last_price: price * (1 + (side === "short" ? -1 : 1) * pnl / 100), exit_price: price * (1 + (side === "short" ? -1 : 1) * pnl / 100),
+    exit_ts: isoOf(now - (minsAgo - 25) * 60e3), exit_reason: reason, pnl_pct: pnl, best_pct: Math.max(0, pnl + (reason === "trailing stop" ? 1 : 0)),
+  });
+  return {
+    agents: [{ name: "trader", status: "watching", current_task: "scanned top 10, 0 signal(s)", tasks_today: 214, pnl: 12.84, last_updated: isoOf(now - 4000) }],
+    outbox: [
+      { agent: "trader", title: "Closed MU long, trailing stop", detail: "Entry 118.42, exit 120.79, 8 shares. P&L +$18.96.", ts: isoOf(now - 52 * 60e3) },
+      { agent: "trader", title: "Closed TSLA long, stop loss", detail: "Entry 251.10, exit 248.59, 3 shares. P&L −$7.53.", ts: isoOf(now - 2.4 * 3600e3) },
+      { agent: "trader", title: "Session open scan", detail: "Top 10 by relative volume: NVDA 3.4x, MU 2.9x, AMD 2.6x, TSLA 2.2x, AVGO 2.0x…", ts: isoOf(now - 6.3 * 3600e3) },
+    ],
+    signals: [
+      sig(80, "MU", "buy", 118.42, 13.8, 2.9, 2.0, "trailing stop"),
+      sig(118, "NFLX", "short", 1191.4, 86.2, 2.1, 1.35, "trailing stop"),
+      sig(150, "TSLA", "buy", 251.10, 14.1, 2.2, -1, "stop loss"),
+      sig(205, "AMD", "buy", 157.92, 12.6, 2.6, -1, "stop loss"),
+      sig(260, "PLTR", "short", 173.05, 88.9, 3.1, 1.1, "trailing stop"),
+    ],
+    heartbeat,
+  };
+}
+const SYMBOLS = ["NVDA", "AMD", "MU", "TSLA", "AVGO", "AAPL", "META", "AMZN", "INTC", "PLTR", "ORCL", "NFLX"];
+const PRICES = { NVDA: 182.4, AMD: 158.2, MU: 118.4, TSLA: 251.1, AVGO: 331.6, AAPL: 232.1, META: 712.3, AMZN: 219.8, INTC: 24.6, PLTR: 171.2, ORCL: 284.5, NFLX: 1188.0 };
+
+function makeSimulator(data) {
+  const st = { phase: "scan", scans: 0, pos: null };
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  const fmt = n => n.toFixed(2);
+  const prices = { ...PRICES };
+  const walk = sym => (prices[sym] *= 1 + (Math.random() - 0.47) * 0.007);
+  function beat() {
+    const key = isoOf(Math.floor(Date.now() / 60e3) * 60e3);
+    const last = data.heartbeat[data.heartbeat.length - 1];
+    if (last && last.minute === key) last.events += 1; else data.heartbeat.push({ minute: key, events: 1 });
+    const cutoff = Date.now() - 24 * 3600e3;
+    while (data.heartbeat.length && Date.parse(data.heartbeat[0].minute) < cutoff) data.heartbeat.shift();
+  }
+  function report(status, task, pnlDelta = 0) {
+    const a = data.agents[0];
+    a.status = status; a.current_task = task; a.tasks_today += 1;
+    a.pnl = Math.round((a.pnl + pnlDelta) * 100) / 100; a.last_updated = isoOf(Date.now());
+    beat();
+  }
+  function outbox(title, detail) {
+    data.outbox.unshift({ agent: "trader", title, detail, ts: isoOf(Date.now()) });
+    data.outbox.length = Math.min(data.outbox.length, 200);
+    beat();
+  }
+  function emit(symbol, side, rsi, rel) {
+    const s = { id: `s${Date.now()}${symbol}`, agent: "trader", ts: isoOf(Date.now()), symbol, side, price: Math.round(prices[symbol] * 100) / 100,
+      rsi: Number(rsi), rel_volume: Number(rel), status: "open", last_price: prices[symbol], exit_price: null, exit_ts: null, exit_reason: null, pnl_pct: 0, best_pct: 0 };
+    data.signals.unshift(s);
+    data.signals.length = Math.min(data.signals.length, 500);
+    return s;
+  }
+  return function step() {
+    // every open signal moves with its stock, whether or not the bot took it
+    for (const sym of SYMBOLS) walk(sym);
+    for (const s of data.signals) if (s.status === "open") scoreSignal(s, prices[s.symbol]);
+    // signals the bot is busy for still go out to the ledger
+    if (st.phase !== "scan" && Math.random() < 0.18) {
+      const short = Math.random() < 0.4, sym = pick(SYMBOLS.filter(x => !st.pos || x !== st.pos.sym));
+      emit(sym, short ? "short" : "buy", short ? (85 + Math.random() * 6).toFixed(1) : (10 + Math.random() * 5).toFixed(1), (1.8 + Math.random() * 2).toFixed(1));
+    }
+    if (st.phase === "scan") {
+      st.scans += 1;
+      if (!(st.scans > 2 && Math.random() < 0.3)) {
+        const sym = pick(SYMBOLS), rsi = (22 + Math.random() * 50).toFixed(1);
+        report("watching", Math.random() < 0.5 ? "scanned top 10, 0 signal(s)" : `scanned top 10, 0 signal(s); lowest RSI ${sym} ${rsi}`);
+        return;
+      }
+      const sym = pick(SYMBOLS), rsi = (11 + Math.random() * 4).toFixed(1), vol = (1.8 + Math.random() * 2).toFixed(1);
+      report("watching", `scanned top 10, 1 signal(s): ${sym} RSI ${rsi}, vol ${vol}x avg`);
+      const s = emit(sym, "buy", rsi, vol);
+      st.pos = { sym, sig: s, entry: s.price, qty: Math.max(1, Math.floor(1000 / s.price)), rsi, vol };
+      st.phase = "enter";
+      return;
+    }
+    if (st.phase === "enter") {
+      const p = st.pos;
+      report("in_position", `entered BUY ${p.sym}`);
+      outbox(`Entered ${p.sym} long`, `BUY ${p.qty} @ $${fmt(p.entry)}. RSI(1m) ${p.rsi}, vol ${p.vol}x avg. Stop −1%, trails 1% after +2%.`);
+      st.phase = "hold";
+      return;
+    }
+    const p = st.pos, s = p.sig;
+    if (s.status === "open") { report("in_position", `LONG ${p.sym} ${p.qty} @ ${fmt(p.entry)}, last ${fmt(prices[p.sym])}`); return; }
+    const pnl = (s.exit_price - p.entry) * p.qty;
+    report("idle", `closed ${p.sym}: ${s.exit_reason}, P&L ${pnl >= 0 ? "+" : ""}${fmt(pnl)}`, pnl);
+    outbox(`Closed ${p.sym} long, ${s.exit_reason}`, `Entry ${fmt(p.entry)}, exit ${fmt(s.exit_price)}, ${p.qty} shares. P&L ${pnl >= 0 ? "+" : "−"}$${fmt(Math.abs(pnl))}.`);
+    st.pos = null; st.phase = "scan"; st.scans = 0;
+  };
+}
+
+/* ----------------------------- state ----------------------------- */
+const state = {
+  source: TERRARIUM_CONFIG.source, apiBase: TERRARIUM_CONFIG.apiBase,
+  data: null, liveError: null, selected: "trader",
+  logs: {}, flashes: {}, lastSeen: {}, outboxSeen: 0,
+};
+try { const q = new URLSearchParams(location.search); if (q.get("api")) { state.apiBase = q.get("api"); state.source = "live"; } } catch (e) {}
+if (location.hash === "#live") state.source = "live";
+
+const $ = id => document.getElementById(id);
+let sample = makeSample();
+let simStep = makeSimulator(sample);
+let timer = null;
+let hives = [];
+let scene = { layout() {}, courier() {}, ant() {} };
+
+function ingest(data) {
+  const now = Date.now();
+  for (const a of data.agents || []) {
+    if (a.last_updated && state.lastSeen[a.name] !== a.last_updated) {
+      const log = state.logs[a.name] || (state.logs[a.name] = []);
+      log.unshift({ t: Date.parse(a.last_updated) || now, status: a.status, task: a.current_task });
+      log.length = Math.min(log.length, 14);
+      if (state.lastSeen[a.name] !== undefined) { state.flashes[a.name] = now; scene.courier(a.name); }
+      state.lastSeen[a.name] = a.last_updated;
+    }
+  }
+  const n = (data.outbox || []).length;
+  if (state.data && n > state.outboxSeen) scene.ant(true);
+  state.outboxSeen = n;
+  state.data = data;
+  buildHives();
+  render();
+}
+
+async function pollLive() {
+  try {
+    const r = await fetch(state.apiBase.replace(/\/$/, "") + "/api/dashboard", { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    state.liveError = null;
+    ingest(await r.json());
+  } catch (e) { state.liveError = e.message || String(e); render(); }
+}
+
+function setSource(src) {
+  state.source = src;
+  clearInterval(timer);
+  state.logs = {}; state.lastSeen = {}; state.flashes = {}; state.data = null; state.outboxSeen = 0;
+  $("src-sample").setAttribute("aria-pressed", src === "sample");
+  $("src-live").setAttribute("aria-pressed", src === "live");
+  if (src === "sample") {
+    sample = makeSample(); simStep = makeSimulator(sample);
+    for (let i = 0; i < 3; i++) { simStep(); sample.agents[0].last_updated = isoOf(Date.now() - (3 - i) * 3200); ingest(structuredClone(sample)); }
+    timer = setInterval(() => { simStep(); ingest(structuredClone(sample)); }, 3200);
+  } else {
+    state.liveError = null; buildHives(); render(); pollLive();
+    timer = setInterval(pollLive, TERRARIUM_CONFIG.pollMs);
+  }
+}
+
+/* ----------------------------- hives ----------------------------- */
+function buildHives() {
+  const agents = (state.data && state.data.agents) || [];
+  const byName = Object.fromEntries(agents.map(a => [a.name, a]));
+  const names = PLANNED.map(p => p.name);
+  const extra = agents.filter(a => !names.includes(a.name)).slice(0, SPARE_SPOTS.length)
+    .map((a, i) => ({ name: a.name, role: "Registered in agents/manifest.json.", ...SPARE_SPOTS[i] }));
+  const list = PLANNED.concat(extra).map(p => ({ ...p, label: p.label || p.name, agent: byName[p.name] || null }));
+  const changed = list.map(h => h.name).join() !== hives.map(h => h.name).join();
+  hives = list;
+  if (changed) scene.layout();
+}
+function select(name) { state.selected = name; render(); }
+
+/* ----------------------------- DOM render ----------------------------- */
+const signedMoney = n => (n > 0 ? "+" : n < 0 ? "−" : "") + "$" + Math.abs(n).toFixed(2);
+const hhmm = t => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+function ago(t) {
+  if (!t) return "never";
+  const s = Math.max(0, Math.round((Date.now() - Date.parse(t)) / 1000));
+  if (s < 60) return s + "s ago";
+  if (s < 3600) return Math.round(s / 60) + "m ago";
+  if (s < 86400) return Math.round(s / 3600) + "h ago";
+  return Math.round(s / 86400) + "d ago";
+}
+function li(time, color, title, detail) {
+  const item = document.createElement("li");
+  const tm = document.createElement("time"); tm.textContent = time;
+  const d = document.createElement("span"); d.className = "d"; d.style.background = color;
+  const t = document.createElement("span"); t.className = "t";
+  const b = document.createElement("b"); b.textContent = title; t.append(b);
+  if (detail) { const sm = document.createElement("small"); sm.textContent = detail; t.append(sm); }
+  item.append(tm, d, t);
+  return item;
+}
+function emptyNote(text) { const p = document.createElement("p"); p.className = "empty"; p.textContent = text; return p; }
+function pulsesLastHour() {
+  const hb = (state.data && state.data.heartbeat) || [];
+  const hourAgo = Date.now() - 3600e3;
+  return hb.filter(h => Date.parse(h.minute) >= hourAgo).reduce((s, h) => s + h.events, 0);
+}
+
+function render() {
+  const data = state.data;
+  const agents = (data && data.agents) || [];
+  const t = document.createElement("span");
+  if (state.source === "sample") { t.className = "tag warn"; t.textContent = "SAMPLE DATA · made-up trades, not connected to Robinhood"; }
+  else if (state.liveError) { t.className = "tag err"; t.textContent = `Can't reach the dashboard at ${state.apiBase}. Start it with python -m dashboard.server and open this page on the same computer.`; }
+  else { t.className = "tag"; t.textContent = data ? `Live from ${state.apiBase}` : `Connecting to ${state.apiBase}…`; }
+  $("banner").replaceChildren(t);
+
+  $("v-alive").textContent = `${agents.filter(a => a.last_updated).length} of ${Math.max(0, hives.length - 1)}`;
+  const total = agents.reduce((s, a) => s + (a.pnl || 0), 0);
+  const pnlEl = $("v-pnl");
+  pnlEl.textContent = data ? signedMoney(total) + (state.source === "sample" ? " (sample)" : "") : "–";
+  pnlEl.style.color = total > 0 ? "var(--gain)" : total < 0 ? "var(--loss)" : "var(--ink)";
+  $("v-hb").textContent = data ? pulsesLastHour() : "–";
+
+  const h = hives.find(x => x.name === state.selected) || hives[1];
+  if (!h) return;
+  const a = h.agent;
+  $("c-eyebrow").textContent = h.core ? "Core · orchestrator" : a ? "Hive · connected" : "Hive · not connected yet";
+  $("c-name").textContent = h.label;
+  $("c-desc").textContent = h.role;
+  $("c-live").hidden = !a; $("c-dormant").hidden = !!a; $("c-activity").hidden = !a;
+  $("c-sample").hidden = state.source !== "sample";
+  if (a) {
+    const pill = $("c-pill");
+    pill.textContent = STATUS_WORDS[a.status] || a.status; pill.style.color = colorFor(a.status);
+    $("c-task").textContent = a.current_task || "No task reported yet.";
+    $("c-tasks").textContent = a.tasks_today;
+    const p = $("c-pnl");
+    p.textContent = signedMoney(a.pnl || 0);
+    p.style.color = a.pnl > 0 ? "var(--gain)" : a.pnl < 0 ? "var(--loss)" : "var(--ink)";
+    const u = $("c-updated"); u.textContent = ago(a.last_updated); u.title = a.last_updated ? new Date(a.last_updated).toLocaleString() : "";
+    const log = state.logs[h.name] || [];
+    const ol = $("c-log");
+    ol.replaceChildren(...log.map(e => li(hhmm(e.t), colorFor(e.status), e.task || "(no task)", STATUS_WORDS[e.status] || e.status)));
+    if (!log.length) ol.append(emptyNote("Waiting for its next report."));
+  } else {
+    const how = $("c-howto");
+    how.replaceChildren();
+    if (h.core) how.textContent = `It's beating with ${data ? pulsesLastHour() : 0} reports in the last hour. The heart wakes up fully in Phase 2, once the Trader has proven itself in the live shakedown.`;
+    else {
+      const c1 = document.createElement("code"); c1.textContent = `agents/${h.name}/`;
+      const c2 = document.createElement("code"); c2.textContent = "agents/manifest.json";
+      how.append("This hive stays dark until the agent is connected. To connect one, add ", c1, " and one entry in ", c2, ". The Terrarium finds it on its own.");
+    }
+  }
+  const mine = ((data && data.outbox) || []).filter(o => o.agent === h.name);
+  $("c-work-n").textContent = mine.length ? `${mine.length} item${mine.length > 1 ? "s" : ""}` : "";
+  const ob = $("c-outbox");
+  ob.replaceChildren(...mine.slice(0, 6).map(o => li(hhmm(o.ts), "var(--honey)", o.title, o.detail)));
+  if (!mine.length) ob.append(emptyNote(a ? "Nothing finished yet today." : "Nothing yet."));
+
+  const all = (data && data.outbox) || [];
+  const gob = $("outbox");
+  gob.replaceChildren(...all.slice(0, 20).map(o => li(hhmm(o.ts), colorFor((agents.find(x => x.name === o.agent) || {}).status), `${o.agent} · ${o.title}`, o.detail)));
+  if (!all.length) gob.append(emptyNote(data ? "No finished work yet." : "Waiting for data."));
+  renderHeartbeat((data && data.heartbeat) || []);
+}
+
+function renderHeartbeat(hb) {
+  const bins = new Array(96).fill(0);
+  const end = Date.now(), start = end - 24 * 3600e3;
+  for (const h of hb) { const t = Date.parse(h.minute); if (t >= start) bins[Math.min(95, Math.floor((t - start) / 9e5))] += h.events; }
+  const max = Math.max(4, ...bins), w = 10;
+  let s = "";
+  for (let x = 0; x <= 4; x++) s += `<line x1="${x * 240}" x2="${x * 240}" y1="0" y2="60" stroke="#1f3530" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+  bins.forEach((v, i) => {
+    const h = v ? Math.max(2, (v / max) * 56) : 1, last = i === 95;
+    s += `<rect x="${i * w + 1}" y="${60 - h}" width="${w - 2}" height="${h}" rx="1.5" fill="${last ? "#ffffff" : "#59f0d4"}" fill-opacity="${v ? (last ? 0.95 : 0.7) : 0.16}"/>`;
+  });
+  $("hb").innerHTML = s;
+}
+
+/* ============================ the terrarium scene ============================ */
+scene = (() => {
+  const canvas = $("tank");
+  const ctx = canvas.getContext("2d");
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  let W = 0, H = 0, DPR = 1;
+  let T = { x: 0, y: 0, w: 0, h: 0 };
+  let back = null, front = null;
+  let geo = {};
+  const bees = [], couriers = [], ants = [], spores = [], ripples = [];
+  let trail = [];
+
+  function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function hexA(hex, a) { const n = parseInt(hex.slice(1), 16); return `rgba(${n >> 16},${(n >> 8) & 255},${n & 255},${a})`; }
+  const P = (u, v) => [T.x + u * T.w, T.y + v * T.h];
+  const S = k => k * T.h;
+
+  function resize() {
+    const r = canvas.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+    W = r.width; H = r.height;
+    canvas.width = Math.round(W * DPR); canvas.height = Math.round(H * DPR);
+    const m = Math.max(10, Math.min(W, H) * 0.035);
+    let tw = W - 2 * m, th = H - 2 * m;
+    if (tw / th > 1.62) tw = th * 1.62; else if (tw / th < 1.12) th = tw / 1.12;
+    T = { x: (W - tw) / 2, y: (H - th) / 2 + m * 0.2, w: tw, h: th };
+    layout();
+  }
+
+  function layout() {
+    if (!T.w) return;
+    geo = {};
+    const [hx, hy] = P(0.515, 0.5);
+    for (const h of hives) {
+      const [x, y] = P(h.u, h.v), r = S(h.r);
+      const g = { x, y, r, cells: [], strands: [], twigs: [] };
+      const rand = rng(h.name.length * 977 + h.name.charCodeAt(0) * 31);
+      if (!h.core) {
+        const s = r / 5.2, hw = Math.sqrt(3) * s;
+        for (let q = -8; q <= 8; q++) for (let k = -8; k <= 8; k++) {
+          const cx = x + hw * (q + k / 2), cy = y + 1.5 * s * k;
+          if (Math.hypot(cx - x, cy - y) < r * 0.86) g.cells.push({ x: cx, y: cy, s, ph: rand() * 6.28, k: 0.6 + rand() * 1.4 });
+        }
+        const ang = Math.atan2(hy - y, hx - x);
+        for (let i = 0; i < 5; i++) {
+          const a0 = ang + (rand() - 0.5) * 1.2;
+          const sx = x + Math.cos(a0) * r * 0.75, sy = y + Math.sin(a0) * r * 0.75;
+          const a1 = ang + Math.PI + (rand() - 0.5) * 1.3;
+          const hr = S(0.13);
+          const ex = hx + Math.cos(a1) * hr * 0.55, ey = hy + Math.sin(a1) * hr * 0.5;
+          const d = Math.hypot(ex - sx, ey - sy) || 1;
+          const nx = -(ey - sy) / d, ny = (ex - sx) / d;
+          const b1 = (rand() - 0.5) * d * 0.35, b2 = (rand() - 0.5) * d * 0.35;
+          g.strands.push([sx, sy, sx + (ex - sx) * 0.33 + nx * b1, sy + (ey - sy) * 0.33 + ny * b1, sx + (ex - sx) * 0.66 + nx * b2, sy + (ey - sy) * 0.66 + ny * b2, ex, ey, 0.6 + rand() * 1.4]);
+        }
+        for (let i = 0; i < 7; i++) {
+          const a0 = ang + (rand() - 0.5) * 2.2, len = r * (0.5 + rand() * 0.5);
+          g.twigs.push([x + Math.cos(a0) * r * 0.9, y + Math.sin(a0) * r * 0.9, a0 + Math.PI + (rand() - 0.5) * 0.8, len]);
+        }
+      } else {
+        const rand2 = rng(42);
+        const veins = [];
+        const grow = (x0, y0, a, len, w, depth) => {
+          let px = x0, py = y0; const pts = [[px, py]];
+          for (let i = 0; i < 8; i++) { a += (rand2() - 0.5) * 0.7; px += Math.cos(a) * len / 8; py += Math.sin(a) * len / 8; pts.push([px, py]); }
+          veins.push({ pts, w });
+          if (depth < 3) for (let j = 0; j < 2; j++) grow(pts[3 + j * 3][0], pts[3 + j * 3][1], a + (rand2() - 0.5) * 1.8, len * 0.62, w * 0.6, depth + 1);
+        };
+        for (let i = 0; i < 4; i++) grow(x, y + r * 0.75, -Math.PI / 2 + (i - 1.5) * 0.45, r * 1.1, S(0.006), 0);
+        g.veins = veins;
+      }
+      geo[h.name] = g;
+    }
+    trail = [];
+    const pts = [[0.22, 0.9], [0.36, 0.935], [0.52, 0.915], [0.66, 0.94], [0.82, 0.885]];
+    for (let i = 0; i < pts.length - 1; i++) for (let k = 0; k < 20; k++) {
+      const f = k / 20, a = pts[i], b = pts[i + 1];
+      trail.push(P(a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f + Math.sin(f * Math.PI) * 0.012));
+    }
+    seedCritters();
+    paintBack(); paintFront();
+  }
+
+  function seedCritters() {
+    bees.length = 0; spores.length = 0; ants.length = 0;
+    const rand = rng(7);
+    for (let i = 0; i < 46; i++) spores.push({ u: rand(), v: rand() * 0.85, s: 0.4 + rand(), p: rand() * 10 });
+    for (let i = 0; i < 4; i++) ants.push({ f: rand(), sp: 0.012 + rand() * 0.01, card: rand() < 0.6 });
+  }
+
+  /* ---------- static background: tank, soil, moss, ferns, stumps ---------- */
+  function paintBack() {
+    back = document.createElement("canvas");
+    back.width = canvas.width; back.height = canvas.height;
+    const c = back.getContext("2d");
+    c.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const rand = rng(99);
+    c.fillStyle = "#020403"; c.fillRect(0, 0, W, H);
+    const g = c.createLinearGradient(0, T.y, 0, T.y + T.h);
+    g.addColorStop(0, "#07110f"); g.addColorStop(0.55, "#0a1813"); g.addColorStop(1, "#0b130d");
+    c.fillStyle = g; c.fillRect(T.x, T.y, T.w, T.h);
+    const glow = c.createRadialGradient(...P(0.515, 0.48), 0, ...P(0.515, 0.48), T.w * 0.55);
+    glow.addColorStop(0, "rgba(89,240,212,0.10)"); glow.addColorStop(1, "rgba(89,240,212,0)");
+    c.fillStyle = glow; c.fillRect(T.x, T.y, T.w, T.h);
+    c.save(); c.beginPath(); c.rect(T.x, T.y, T.w, T.h); c.clip();
+
+    function fern(u, v, ang, len, alpha) {
+      let [x, y] = P(u, v);
+      const L = S(len), steps = 18;
+      c.strokeStyle = `rgba(52,96,58,${alpha})`; c.lineWidth = Math.max(1, S(0.003));
+      for (let i = 0; i < steps; i++) {
+        const f = i / steps, a = ang + f * 0.6;
+        const nx = x + Math.cos(a) * L / steps, ny = y + Math.sin(a) * L / steps;
+        c.beginPath(); c.moveTo(x, y); c.lineTo(nx, ny); c.stroke();
+        const leaf = L * 0.16 * (1 - f * 0.85);
+        for (const side of [-1, 1]) {
+          c.beginPath(); c.moveTo(nx, ny);
+          c.quadraticCurveTo(nx + Math.cos(a + side * 1.1) * leaf * 0.6, ny + Math.sin(a + side * 1.1) * leaf * 0.6, nx + Math.cos(a + side * 0.9) * leaf, ny + Math.sin(a + side * 0.9) * leaf);
+          c.stroke();
+        }
+        x = nx; y = ny;
+      }
+    }
+    fern(0.12, 0.35, -1.9, 0.35, 0.55); fern(0.14, 0.38, -1.2, 0.3, 0.45); fern(0.45, 0.62, -1.5, 0.3, 0.35);
+    fern(0.58, 0.6, -1.3, 0.26, 0.3); fern(0.9, 0.62, -1.9, 0.3, 0.45); fern(0.94, 0.9, -1.7, 0.32, 0.5); fern(0.05, 0.9, -1.3, 0.3, 0.5);
+
+    c.strokeStyle = "rgba(70,55,38,0.5)";
+    for (let i = 0; i < 9; i++) {
+      let [x, y] = P(0.25 + rand() * 0.5, 0);
+      c.lineWidth = Math.max(0.8, S(0.003)); c.beginPath(); c.moveTo(x, y);
+      const n = 6 + rand() * 6;
+      for (let k = 0; k < n; k++) { x += (rand() - 0.5) * S(0.03); y += S(0.02); c.lineTo(x, y); }
+      c.stroke();
+    }
+
+    c.beginPath();
+    c.moveTo(T.x, T.y + T.h);
+    for (let i = 0; i <= 40; i++) { const u = i / 40; const [x, y] = P(u, 0.855 + Math.sin(u * 9 + 1) * 0.012 + Math.sin(u * 23) * 0.006); c.lineTo(x, y); }
+    c.lineTo(T.x + T.w, T.y + T.h); c.closePath();
+    const sg = c.createLinearGradient(0, T.y + T.h * 0.85, 0, T.y + T.h);
+    sg.addColorStop(0, "#1d1a10"); sg.addColorStop(1, "#0b0905");
+    c.fillStyle = sg; c.fill();
+    c.strokeStyle = "rgba(92,70,44,0.55)";
+    for (let i = 0; i < 26; i++) {
+      let [x, y] = P(rand(), 0.88 + rand() * 0.08);
+      c.lineWidth = Math.max(0.6, S(0.0025)); c.beginPath(); c.moveTo(x, y);
+      for (let k = 0; k < 6; k++) { x += (rand() - 0.5) * S(0.05); y += (rand() - 0.3) * S(0.015); c.lineTo(x, y); }
+      c.stroke();
+    }
+
+    const bark = (x, w) => {
+      const bg = c.createLinearGradient(x - w / 2, 0, x + w / 2, 0);
+      bg.addColorStop(0, "#1a120a"); bg.addColorStop(0.45, "#3a2a19"); bg.addColorStop(1, "#140e08");
+      return bg;
+    };
+    const moss = (x, y, rw, rh, n) => {
+      for (let i = 0; i < n; i++) {
+        const a = rand() * Math.PI * 2, d = Math.sqrt(rand());
+        const rr = S(0.006 + rand() * 0.014);
+        c.fillStyle = `rgba(${50 + rand() * 40 | 0},${90 + rand() * 50 | 0},${40 + rand() * 20 | 0},${0.55 + rand() * 0.4})`;
+        c.beginPath(); c.arc(x + Math.cos(a) * d * rw, y + Math.sin(a) * d * rh, rr, 0, Math.PI * 2); c.fill();
+      }
+    };
+
+    const groundY = T.y + T.h * 0.87;
+    for (const h of hives) {
+      const g2 = geo[h.name]; if (!g2 || h.core) continue;
+      const { x, y, r } = g2;
+      if (h.base === "stump") {
+        const topW = r * 1.25, botW = r * 1.7;
+        c.beginPath();
+        c.moveTo(x - topW / 2, y + r * 0.35); c.lineTo(x + topW / 2, y + r * 0.35);
+        c.lineTo(x + botW / 2, groundY + S(0.01)); c.quadraticCurveTo(x, groundY + S(0.04), x - botW / 2, groundY + S(0.01)); c.closePath();
+        c.fillStyle = bark(x, botW); c.fill();
+        c.strokeStyle = "rgba(0,0,0,0.35)"; c.lineWidth = 1;
+        for (let i = 0; i < 9; i++) { const fx = x + (rand() - 0.5) * topW; c.beginPath(); c.moveTo(fx, y + r * 0.5); c.lineTo(fx + (fx - x) * 0.4, groundY); c.stroke(); }
+        moss(x, y + r * 0.35, r * 1.1, S(0.04), 260);
+        moss(x, groundY, r * 1.4, S(0.025), 160);
+      } else if (h.base === "ledge") {
+        const ly = y + r * 0.95;
+        c.beginPath();
+        c.moveTo(T.x + T.w + 2, ly - S(0.05)); c.quadraticCurveTo(x, ly - S(0.03), x - r * 1.6, ly + S(0.02));
+        c.lineTo(x - r * 1.5, ly + S(0.065)); c.quadraticCurveTo(x, ly + S(0.06), T.x + T.w + 2, ly + S(0.04)); c.closePath();
+        const lg = c.createLinearGradient(0, ly - S(0.05), 0, ly + S(0.07)); lg.addColorStop(0, "#3a2a19"); lg.addColorStop(1, "#120c07");
+        c.fillStyle = lg; c.fill();
+        moss(x + S(0.03), ly - S(0.03), r * 1.6, S(0.025), 240);
+        c.strokeStyle = "rgba(92,70,44,0.55)";
+        for (let i = 0; i < 8; i++) { let px = x - r + rand() * r * 2.5, py = ly + S(0.05); c.lineWidth = 1; c.beginPath(); c.moveTo(px, py); for (let k = 0; k < 5; k++) { px += (rand() - 0.5) * S(0.02); py += S(0.025); c.lineTo(px, py); } c.stroke(); }
+      } else if (h.base === "mound") {
+        if (y + r < groundY - S(0.02)) { c.fillStyle = bark(x, r * 0.5); c.fillRect(x - r * 0.2, y + r * 0.6, r * 0.4, groundY - y - r * 0.6); }
+        c.beginPath(); c.ellipse(x, groundY, r * 1.5, r * 0.55, 0, Math.PI, 0);
+        c.fillStyle = "#16200f"; c.fill();
+        moss(x, groundY - r * 0.15, r * 1.4, r * 0.4, 220);
+      } else if (h.base === "vine") {
+        c.strokeStyle = "#2c3d22"; c.lineWidth = Math.max(1.5, S(0.006));
+        c.beginPath(); c.moveTo(x - r * 0.3, T.y); c.bezierCurveTo(x - r * 0.6, y - r * 2, x + r * 0.4, y - r * 1.6, x, y - r * 0.85); c.stroke();
+        moss(x, y - r * 0.9, r * 0.6, S(0.015), 60);
+      }
+    }
+    const [hx, hy] = P(0.515, 0.5);
+    c.strokeStyle = "#2a1d11";
+    for (let i = 0; i < 9; i++) {
+      let x = hx + (rand() - 0.5) * S(0.05), y = hy + S(0.11);
+      c.lineWidth = S(0.012 + rand() * 0.012); c.beginPath(); c.moveTo(x, y);
+      const dir = (i - 4) * 0.035;
+      for (let k = 0; k < 8; k++) { x += dir * S(0.25) + (rand() - 0.5) * S(0.02); y += S(0.032); c.lineTo(x, y); }
+      c.stroke();
+    }
+    moss(...P(0.515, 0.86), T.w * 0.2, S(0.03), 260);
+    moss(...P(0.5, 0.64), T.w * 0.06, S(0.02), 90);
+    c.restore();
+  }
+
+  /* ---------- glass overlay ---------- */
+  function paintFront() {
+    front = document.createElement("canvas");
+    front.width = canvas.width; front.height = canvas.height;
+    const c = front.getContext("2d");
+    c.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const d = Math.min(T.w, T.h) * 0.035;
+    c.strokeStyle = "rgba(190,235,230,0.14)"; c.lineWidth = 1;
+    c.strokeRect(T.x + d, T.y + d * 0.6, T.w - 2 * d, T.h - d * 1.4);
+    for (const [ax, ay, bx, by] of [[T.x, T.y, T.x + d, T.y + d * 0.6], [T.x + T.w, T.y, T.x + T.w - d, T.y + d * 0.6], [T.x, T.y + T.h, T.x + d, T.y + T.h - d * 0.8], [T.x + T.w, T.y + T.h, T.x + T.w - d, T.y + T.h - d * 0.8]]) {
+      c.beginPath(); c.moveTo(ax, ay); c.lineTo(bx, by); c.stroke();
+    }
+    c.save(); c.beginPath(); c.rect(T.x, T.y, T.w, T.h); c.clip();
+    const streak = (x0, w, a) => {
+      const g = c.createLinearGradient(x0, 0, x0 + w, 0);
+      g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, `rgba(220,245,240,${a})`); g.addColorStop(1, "rgba(255,255,255,0)");
+      c.fillStyle = g; c.fillRect(x0, T.y, w, T.h);
+    };
+    streak(T.x + T.w * 0.03, T.w * 0.035, 0.05); streak(T.x + T.w * 0.56, T.w * 0.02, 0.035); streak(T.x + T.w * 0.9, T.w * 0.05, 0.04);
+    const top = c.createLinearGradient(0, T.y, 0, T.y + T.h * 0.08);
+    top.addColorStop(0, "rgba(200,240,235,0.10)"); top.addColorStop(1, "rgba(200,240,235,0)");
+    c.fillStyle = top; c.fillRect(T.x, T.y, T.w, T.h * 0.08);
+    const rand = rng(5);
+    for (let i = 0; i < 40; i++) { c.fillStyle = `rgba(210,240,235,${0.08 + rand() * 0.12})`; c.beginPath(); c.arc(T.x + rand() * T.w * 0.12, T.y + rand() * T.h * 0.5, 0.6 + rand() * 1.4, 0, Math.PI * 2); c.fill(); }
+    c.restore();
+    c.strokeStyle = "rgba(200,240,235,0.45)"; c.lineWidth = 1.5; c.strokeRect(T.x, T.y, T.w, T.h);
+    c.strokeStyle = "rgba(200,240,235,0.12)"; c.lineWidth = 4; c.strokeRect(T.x - 2, T.y - 2, T.w + 4, T.h + 4);
+    const pg = c.createLinearGradient(0, T.y + T.h, 0, T.y + T.h + 10);
+    pg.addColorStop(0, "rgba(160,200,195,0.25)"); pg.addColorStop(1, "rgba(160,200,195,0)");
+    c.fillStyle = pg; c.fillRect(T.x - 4, T.y + T.h + 1, T.w + 8, 10);
+  }
+
+  /* ---------- live drawing ---------- */
+  function activityOf(a) {
+    if (!a) return 0;
+    const base = { in_position: 1, watching: 0.7, idle: 0.45, sleeping: 0.12, halted: 0.04 }[a.status] ?? 0.4;
+    const age = (Date.now() - (Date.parse(a.last_updated) || 0)) / 1000;
+    return base * (age > 900 ? 0.35 : 1);
+  }
+  function bez(s, f) {
+    const v = 1 - f;
+    return [v * v * v * s[0] + 3 * v * v * f * s[2] + 3 * v * f * f * s[4] + f * f * f * s[6], v * v * v * s[1] + 3 * v * v * f * s[3] + 3 * v * f * f * s[5] + f * f * f * s[7]];
+  }
+  function heartPath(cx, cy, size) {
+    ctx.beginPath();
+    for (let i = 0; i <= 64; i++) {
+      const t = (i / 64) * Math.PI * 2;
+      const x = 16 * Math.pow(Math.sin(t), 3);
+      const y = -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t));
+      const px = cx + (x / 17) * size, py = cy + (y / 17) * size;
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.closePath();
+  }
+  function beatAt(t) {
+    const bpm = Math.max(46, Math.min(104, 50 + pulsesLastHour() * 0.45));
+    const ph = (t * bpm / 60) % 1;
+    const g = (m, w) => Math.exp(-Math.pow((ph - m) / w, 2));
+    return g(0.08, 0.05) + 0.6 * g(0.28, 0.05);
+  }
+
+  function drawStrands(h, g, beat) {
+    const a = h.agent;
+    for (const s of g.strands) {
+      ctx.beginPath(); ctx.moveTo(s[0], s[1]); ctx.bezierCurveTo(s[2], s[3], s[4], s[5], s[6], s[7]);
+      if (a) {
+        ctx.strokeStyle = `rgba(89,240,212,${0.08 + beat * 0.08})`; ctx.lineWidth = S(0.012) * s[8]; ctx.stroke();
+        ctx.strokeStyle = `rgba(160,255,235,${0.45 + beat * 0.35})`; ctx.lineWidth = Math.max(1, S(0.0028) * s[8]); ctx.stroke();
+      } else {
+        ctx.strokeStyle = "rgba(80,110,100,0.18)"; ctx.lineWidth = Math.max(1, S(0.0025) * s[8]); ctx.stroke();
+      }
+    }
+    ctx.strokeStyle = a ? "rgba(140,250,225,0.5)" : "rgba(80,110,100,0.18)";
+    ctx.lineWidth = Math.max(0.8, S(0.002));
+    for (const [sx, sy, ang, len] of g.twigs) {
+      ctx.beginPath(); ctx.moveTo(sx, sy);
+      let x = sx, y = sy, aa = ang;
+      for (let i = 0; i < 5; i++) { aa += Math.sin(i * 1.7 + sx) * 0.35; x += Math.cos(aa) * len / 5; y += Math.sin(aa) * len / 5; ctx.lineTo(x, y); }
+      ctx.stroke();
+    }
+  }
+
+  function hexPath(x, y, s) {
+    ctx.moveTo(x + s * Math.cos(Math.PI / 6), y + s * Math.sin(Math.PI / 6));
+    for (let i = 1; i <= 6; i++) { const a = Math.PI / 6 + i * Math.PI / 3; ctx.lineTo(x + s * Math.cos(a), y + s * Math.sin(a)); }
+  }
+
+  function drawHive(h, g, t) {
+    const a = h.agent, col = a ? colorFor(a.status) : null;
+    const { x, y, r } = g;
+    const act = activityOf(a);
+    const flashAge = a && state.flashes[h.name] ? (Date.now() - state.flashes[h.name]) / 1000 : 9;
+    const flash = Math.max(0, 1 - flashAge / 1.2);
+    if (a) {
+      const og = ctx.createRadialGradient(x, y, r * 0.3, x, y, r * 2.1);
+      og.addColorStop(0, hexA(col, 0.32 + flash * 0.25)); og.addColorStop(1, hexA(col, 0));
+      ctx.fillStyle = og; ctx.beginPath(); ctx.arc(x, y, r * 2.1, 0, Math.PI * 2); ctx.fill();
+    }
+    const wg = ctx.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r * 1.05);
+    wg.addColorStop(0, a ? "#d8bf8a" : "#5a4d38"); wg.addColorStop(1, a ? "#7a5e33" : "#2a2218");
+    ctx.fillStyle = wg; ctx.beginPath();
+    for (let i = 0; i <= 40; i++) { const th = i / 40 * Math.PI * 2; const k = 1 + Math.sin(th * 5 + x) * 0.03 + Math.sin(th * 11) * 0.015; const px = x + Math.cos(th) * r * k, py = y + Math.sin(th) * r * k; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+    ctx.closePath(); ctx.fill();
+    for (const c of g.cells) {
+      ctx.beginPath(); hexPath(c.x, c.y, c.s * 0.86);
+      if (a) {
+        const d = Math.hypot(c.x - x, c.y - y) / r;
+        const flick = 0.55 + 0.45 * Math.sin(t * c.k * (1 + act * 2) + c.ph);
+        const lum = (0.35 + 0.65 * act) * flick * (1 - d * 0.45) + flash * 0.4;
+        ctx.fillStyle = hexA(col, Math.min(1, 0.25 + lum * 0.75));
+      } else ctx.fillStyle = "rgba(14,11,7,0.9)";
+      ctx.fill();
+    }
+    if (a) {
+      ctx.save(); ctx.globalCompositeOperation = "lighter";
+      const ig = ctx.createRadialGradient(x, y, 0, x, y, r * 0.9);
+      ig.addColorStop(0, `rgba(255,255,240,${0.18 + act * 0.2 + flash * 0.3})`); ig.addColorStop(1, "rgba(255,255,240,0)");
+      ctx.fillStyle = ig; ctx.beginPath(); ctx.arc(x, y, r * 0.9, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    ctx.strokeStyle = a ? "rgba(120,92,52,0.9)" : "rgba(60,50,36,0.9)"; ctx.lineWidth = r * 0.08;
+    ctx.beginPath(); ctx.arc(x, y, r * 0.95, 0, Math.PI * 2); ctx.stroke();
+  }
+
+  function drawHeart(h, g, beat) {
+    const { x, y } = g;
+    const size = S(0.13) * (1 + beat * 0.06);
+    const a = h.agent, col = a ? colorFor(a.status) : "#59f0d4";
+    const og = ctx.createRadialGradient(x, y, size * 0.2, x, y, size * 2.2);
+    og.addColorStop(0, hexA(col, 0.35 + beat * 0.25)); og.addColorStop(1, hexA(col, 0));
+    ctx.fillStyle = og; ctx.beginPath(); ctx.arc(x, y, size * 2.2, 0, Math.PI * 2); ctx.fill();
+    heartPath(x, y - size * 0.1, size);
+    const fg = ctx.createRadialGradient(x, y - size * 0.2, size * 0.1, x, y, size * 1.1);
+    fg.addColorStop(0, `rgba(210,255,245,${0.55 + beat * 0.3})`); fg.addColorStop(0.5, hexA(col, 0.45 + beat * 0.2)); fg.addColorStop(1, hexA(col, 0.12));
+    ctx.fillStyle = fg; ctx.fill();
+    ctx.save(); ctx.clip();
+    ctx.strokeStyle = `rgba(230,255,250,${0.45 + beat * 0.4})`;
+    const sc = size / S(0.15);
+    for (const v of g.veins) {
+      ctx.lineWidth = Math.max(0.7, v.w * sc); ctx.beginPath();
+      v.pts.forEach(([px, py], i) => { const qx = x + (px - x) * sc, qy = y + (py - y) * sc; i ? ctx.lineTo(qx, qy) : ctx.moveTo(qx, qy); });
+      ctx.stroke();
+    }
+    ctx.restore();
+    heartPath(x, y - size * 0.1, size);
+    ctx.strokeStyle = `rgba(170,255,235,${0.6 + beat * 0.3})`; ctx.lineWidth = Math.max(1, S(0.004)); ctx.stroke();
+  }
+
+  function plaque(h, g) {
+    const a = h.agent;
+    const fs = Math.max(9, Math.min(15, S(0.03)));
+    ctx.font = `600 ${fs}px Figtree, system-ui, sans-serif`;
+    const text = h.label.toUpperCase();
+    const tw = ctx.measureText(text).width + fs * 1.6, th = fs * 1.7;
+    const px = g.x - tw / 2;
+    const py = h.core ? g.y + S(0.17) : h.base === "ledge" ? g.y + g.r + S(0.075) : g.y + g.r * 1.12;
+    const pg = ctx.createLinearGradient(0, py, 0, py + th);
+    pg.addColorStop(0, a || h.core ? "#e6d8b4" : "#8f846c"); pg.addColorStop(1, a || h.core ? "#bfae86" : "#6c634f");
+    ctx.fillStyle = pg; ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(px, py, tw, th, 2); else ctx.rect(px, py, tw, th);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(60,45,25,0.6)"; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = "rgba(60,45,25,0.6)";
+    for (const sx of [px + fs * 0.4, px + tw - fs * 0.4]) { ctx.beginPath(); ctx.arc(sx, py + th / 2, 1.3, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = "#2a2014"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(text, g.x, py + th / 2 + 0.5);
+    ctx.font = `500 ${Math.max(9, fs * 0.72)}px "JetBrains Mono", ui-monospace, monospace`;
+    ctx.fillStyle = a ? colorFor(a.status) : h.core ? "rgba(89,240,212,0.85)" : "rgba(147,170,163,0.75)";
+    ctx.fillText(a ? (STATUS_WORDS[a.status] || a.status) : h.core ? "beating" : "not connected", g.x, py + th + fs * 0.75);
+    ctx.textBaseline = "alphabetic";
+  }
+
+  function drawBee(x, y, s, ang, t) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(ang);
+    ctx.fillStyle = "rgba(255,190,90,0.22)"; ctx.beginPath(); ctx.arc(0, 0, s * 3.2, 0, Math.PI * 2); ctx.fill();
+    const flap = 0.5 + 0.5 * Math.sin(t * 60 + x);
+    ctx.fillStyle = `rgba(235,250,255,${0.35 + flap * 0.3})`;
+    ctx.beginPath(); ctx.ellipse(-s * 0.2, -s * 0.9, s * 0.9, s * 0.45 * (0.4 + flap), -0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-s * 0.2, s * 0.9, s * 0.9, s * 0.45 * (0.4 + flap), 0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgb(255,190,80)"; ctx.beginPath(); ctx.ellipse(0, 0, s * 1.4, s * 0.75, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(40,25,10,0.8)";
+    ctx.fillRect(-s * 0.5, -s * 0.7, s * 0.3, s * 1.4); ctx.fillRect(s * 0.15, -s * 0.7, s * 0.3, s * 1.4);
+    ctx.restore();
+  }
+  function drawCard(x, y, s, t) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(t * 3 + x) * 0.2);
+    ctx.fillStyle = "rgba(89,240,212,0.25)"; ctx.beginPath(); ctx.arc(0, 0, s * 2.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(190,255,240,0.95)"; ctx.fillRect(-s * 0.8, -s, s * 1.6, s * 2);
+    ctx.strokeStyle = "rgba(40,140,120,0.9)"; ctx.lineWidth = 0.8; ctx.strokeRect(-s * 0.8, -s, s * 1.6, s * 2);
+    ctx.fillStyle = "rgba(40,140,120,0.9)"; ctx.fillRect(-s * 0.45, -s * 0.4, s * 0.9, s * 0.8);
+    ctx.restore();
+  }
+  function drawAnt(x, y, s, dir, t) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(dir, 1);
+    ctx.fillStyle = "#120c06"; ctx.strokeStyle = "#120c06"; ctx.lineWidth = Math.max(0.6, s * 0.25);
+    const leg = Math.sin(t * 18 + x) * s * 0.5;
+    for (const lx of [-s * 0.6, 0, s * 0.6]) { ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx + leg, s * 1.1); ctx.stroke(); }
+    ctx.beginPath(); ctx.ellipse(-s * 1.1, -s * 0.2, s * 0.9, s * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, -s * 0.3, s * 0.55, s * 0.4, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(s * 0.85, -s * 0.4, s * 0.5, s * 0.45, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  function trailAt(f) {
+    const n = trail.length - 1, i = Math.min(n - 1, Math.floor(f * n)), k = f * n - i;
+    const a = trail[i], b = trail[i + 1];
+    return [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, b[0] >= a[0] ? 1 : -1];
+  }
+  const mushrooms = [[0.06, 0.86, 1], [0.09, 0.875, 0.7], [0.27, 0.885, 0.8], [0.3, 0.9, 0.55], [0.46, 0.885, 0.6], [0.6, 0.9, 0.75], [0.73, 0.89, 0.5], [0.93, 0.6, 0.8], [0.96, 0.62, 0.6], [0.89, 0.39, 0.6], [0.95, 0.875, 0.7], [0.12, 0.6, 0.5]];
+
+  let lastT = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+    const t = (now / 1000) * (reduced ? 0.2 : 1);
+    if (!back || !T.w) { requestAnimationFrame(frame); return; }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(back, 0, 0);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.save(); ctx.beginPath(); ctx.rect(T.x, T.y, T.w, T.h); ctx.clip();
+    const beat = reduced ? 0.3 : beatAt(t);
+
+    for (const s of spores) {
+      s.v -= dt * 0.004 * s.s; if (s.v < 0.02) s.v = 0.85;
+      const [x, y] = P(s.u + Math.sin(t * 0.3 + s.p) * 0.01, s.v);
+      ctx.fillStyle = `rgba(170,255,230,${0.15 + 0.2 * Math.sin(t * 1.5 + s.p * 3) ** 2})`;
+      ctx.beginPath(); ctx.arc(x, y, 0.6 + s.s * 0.8, 0, Math.PI * 2); ctx.fill();
+    }
+    for (const h of hives) if (!h.core && geo[h.name]) drawStrands(h, geo[h.name], beat);
+    if (!reduced) for (const h of hives) {
+      const g = geo[h.name]; if (h.core || !g || !h.agent) continue;
+      const k = (t * 0.35 + g.x * 0.01) % 1;
+      for (const s of g.strands.slice(0, 3)) { const [px, py] = bez(s, (k + s[8] * 0.3) % 1); ctx.fillStyle = "rgba(220,255,245,0.8)"; ctx.beginPath(); ctx.arc(px, py, Math.max(1.2, S(0.004)), 0, Math.PI * 2); ctx.fill(); }
+    }
+    for (const [u, v, k] of mushrooms) {
+      const [x, y] = P(u, v), s = S(0.022) * k;
+      const gl = 0.5 + 0.3 * Math.sin(t * 0.8 + u * 20);
+      ctx.fillStyle = `rgba(89,240,212,${0.12 * gl})`; ctx.beginPath(); ctx.arc(x, y - s * 1.3, s * 2.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "rgba(200,225,215,0.75)"; ctx.fillRect(x - s * 0.13, y - s * 1.3, s * 0.26, s * 1.3);
+      ctx.fillStyle = `rgba(120,250,225,${0.55 + gl * 0.35})`; ctx.beginPath(); ctx.ellipse(x, y - s * 1.3, s * 0.85, s * 0.42, 0, Math.PI, 0); ctx.fill();
+    }
+    const core = hives.find(h => h.core);
+    if (core && geo[core.name]) drawHeart(core, geo[core.name], beat);
+    for (const h of hives) if (!h.core && geo[h.name]) drawHive(h, geo[h.name], t);
+
+    for (const h of hives) {
+      const g = geo[h.name]; if (h.core || !g) continue;
+      const want = h.agent ? Math.round(3 + activityOf(h.agent) * 12) : 0;
+      const mine = bees.filter(b => b.h === h.name);
+      for (let i = mine.length; i < want; i++) bees.push({ h: h.name, a: Math.random() * 6.28, d: 1.05 + Math.random() * 0.9, sp: (0.3 + Math.random() * 0.6) * (Math.random() < 0.5 ? -1 : 1), p: Math.random() * 10 });
+      for (const b of mine.slice(want)) bees.splice(bees.indexOf(b), 1);
+    }
+    for (const b of bees) {
+      const g = geo[b.h]; if (!g) continue;
+      b.a += dt * b.sp * (reduced ? 0.2 : 1);
+      const d = g.r * (b.d + Math.sin(t * 1.3 + b.p) * 0.12);
+      drawBee(g.x + Math.cos(b.a) * d * 1.15, g.y + Math.sin(b.a) * d * 0.85 + Math.sin(t * 4 + b.p) * S(0.006), Math.max(1.4, S(0.0055)), b.a + (b.sp > 0 ? Math.PI / 2 : -Math.PI / 2), t);
+    }
+    for (let i = couriers.length - 1; i >= 0; i--) {
+      const c = couriers[i]; c.f += dt * 0.35;
+      const g = geo[c.h];
+      if (c.f >= 1 || !g) { couriers.splice(i, 1); continue; }
+      const s = g.strands[c.k % g.strands.length];
+      const [x, y] = bez(s, c.f), [x2, y2] = bez(s, Math.min(1, c.f + 0.02));
+      drawCard(x, y + S(0.014), Math.max(1.6, S(0.007)), t);
+      drawBee(x, y - S(0.004), Math.max(1.6, S(0.0065)), Math.atan2(y2 - y, x2 - x), t);
+    }
+    if (trail.length && hives.some(h => h.agent)) {
+      trail.forEach(([x, y], i) => { if (i % 2) return; const tw = 0.5 + 0.5 * Math.sin(t * 2 + i * 0.7); ctx.fillStyle = `rgba(255,200,110,${0.25 + tw * 0.5})`; ctx.beginPath(); ctx.arc(x, y, Math.max(0.8, S(0.0028)), 0, Math.PI * 2); ctx.fill(); });
+      for (let i = ants.length - 1; i >= 0; i--) {
+        const a = ants[i]; a.f += dt * a.sp * (reduced ? 0.2 : 1);
+        if (a.f >= 1) { if (a.once) { ants.splice(i, 1); continue; } a.f = 0; }
+        const [x, y, dir] = trailAt(a.f), s = Math.max(1.3, S(0.0055));
+        drawAnt(x, y - s * 1.2, s, dir, t);
+        if (a.card) drawCard(x, y - s * 3.6, Math.max(1.5, S(0.006)), t);
+      }
+    }
+    const sel = hives.find(h => h.name === state.selected), sg = sel && geo[sel.name];
+    if (sg) {
+      const R = (sel.core ? S(0.15) : sg.r) * 1.3, L = R * 0.28;
+      ctx.strokeStyle = sel.agent ? colorFor(sel.agent.status) : "rgba(220,240,235,0.8)"; ctx.lineWidth = 1.6;
+      for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        const cx = sg.x + sx * R, cy = sg.y + sy * R;
+        ctx.beginPath(); ctx.moveTo(cx, cy - sy * L); ctx.lineTo(cx, cy); ctx.lineTo(cx - sx * L, cy); ctx.stroke();
+      }
+    }
+    for (const h of hives) if (geo[h.name]) plaque(h, geo[h.name]);
+    for (let i = ripples.length - 1; i >= 0; i--) {
+      const r = ripples[i]; r.k += dt * 1.6;
+      if (r.k > 1) { ripples.splice(i, 1); continue; }
+      ctx.strokeStyle = `rgba(200,255,240,${(1 - r.k) * 0.5})`; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(r.x, r.y, 8 + r.k * 40, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(front, 0, 0);
+    requestAnimationFrame(frame);
+  }
+
+  function hit(ev) {
+    const r = canvas.getBoundingClientRect();
+    const mx = ev.clientX - r.left, my = ev.clientY - r.top;
+    let best = null, bd = Infinity;
+    for (const h of hives) {
+      const g = geo[h.name]; if (!g) continue;
+      const rr = h.core ? S(0.15) : Math.max(g.r * 1.2, 22);
+      const d = Math.hypot(mx - g.x, my - g.y);
+      if (d < rr && d < bd) { best = h; bd = d; }
+    }
+    return { h: best, mx, my };
+  }
+  canvas.addEventListener("pointermove", ev => { canvas.style.cursor = hit(ev).h ? "pointer" : "default"; });
+  canvas.addEventListener("click", ev => { const { h, mx, my } = hit(ev); ripples.push({ x: mx, y: my, k: 0 }); if (h) select(h.name); });
+  new ResizeObserver(resize).observe(canvas);
+  requestAnimationFrame(frame);
+
+  return {
+    layout,
+    courier(name) { const g = geo[name]; if (g && g.strands.length && !reduced) couriers.push({ h: name, f: 0, k: Math.floor(Math.random() * 5) }); },
+    ant(card) { if (!reduced) ants.push({ f: 0, sp: 0.03, card, once: true }); },
+  };
+})();
+
+/* ============================ voice ============================ */
+(() => {
+  const answerEl = $("answer"), noteEl = $("voice-note"), micBtn = $("mic"), briefBtn = $("brief"), speakBtn = $("speak-toggle");
+  let speakOn = true, claudeSample = null, listening = false, rec = null;
+  try { speakOn = localStorage.getItem("terrarium.speak") !== "off"; } catch (e) {}
+  speakBtn.setAttribute("aria-pressed", speakOn);
+
+  const todayKey = () => new Date().toLocaleDateString("en-CA");
+  const briefingDone = () => { try { return localStorage.getItem("terrarium.briefed") === todayKey(); } catch (e) { return false; } };
+  function markBriefed() { try { localStorage.setItem("terrarium.briefed", todayKey()); } catch (e) {} briefBtn.dataset.ready = "false"; briefBtn.textContent = "Daily briefing"; }
+  if (!briefingDone()) { briefBtn.dataset.ready = "true"; briefBtn.textContent = "Today's briefing is ready"; }
+
+  function show(text, who = "Terrarium") {
+    answerEl.classList.remove("muted");
+    const w = document.createElement("span"); w.className = "who"; w.textContent = who;
+    answerEl.replaceChildren(w, document.createTextNode(text));
+  }
+  function say(text) {
+    show(text);
+    if (!speakOn || !("speechSynthesis" in window)) return;
+    try {
+      speechSynthesis.cancel();
+      const spoken = text.replace(/−\$/g, "minus $").replace(/\$([\d,]+)\.(\d\d)/g, (m, d, c) => `${d} dollars${c !== "00" ? " and " + Number(c) + " cents" : ""}`).replace(/P&L/g, "profit and loss");
+      const u = new SpeechSynthesisUtterance(spoken);
+      const vs = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
+      const pick = vs.find(v => /natural|neural|samantha|google us|aria|jenny/i.test(v.name)) || vs[0];
+      if (pick) u.voice = pick;
+      u.rate = 1.02;
+      speechSynthesis.speak(u);
+    } catch (e) {}
+  }
+
+  const dollars = n => (n < 0 ? "down " : "up ") + "$" + Math.abs(n).toFixed(2);
+  function describeAgent(a) {
+    const status = { watching: "watching the market", in_position: "holding a position", idle: "idle between trades", sleeping: "asleep", halted: "halted by its safety switch" }[a.status] || a.status;
+    return `The ${a.name} is ${status}. Its latest report: ${a.current_task || "nothing yet"}. It has done ${a.tasks_today} tasks today and is ${dollars(a.pnl || 0)}.`;
+  }
+  function briefing() {
+    const d = state.data;
+    if (!d) return "I don't have any data yet. Give the dashboard a moment to answer.";
+    const hour = new Date().getHours();
+    const hello = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+    const day = new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+    const live = d.agents.filter(a => a.last_updated);
+    const dark = hives.filter(h => !h.core && !h.agent).map(h => h.name);
+    const total = d.agents.reduce((s, a) => s + (a.pnl || 0), 0);
+    const done = (d.outbox || []).filter(o => Date.parse(o.ts) >= Date.now() - 24 * 3600e3);
+    const parts = [`${hello}, ${TERRARIUM_CONFIG.ownerName}. Here's the Terrarium for ${day}.`];
+    if (state.source === "sample") parts.push("Remember, this is sample data, not real trading.");
+    parts.push(`${live.length} of ${hives.length - 1} hives are active, and the organism is ${dollars(total)} today.`);
+    for (const a of live) parts.push(describeAgent(a));
+    if (done.length) parts.push(`In the last day it finished ${done.length} piece${done.length > 1 ? "s" : ""} of work. Most recent: ${done[0].title}. ${done[0].detail}`);
+    parts.push(`The heart logged ${pulsesLastHour()} reports in the last hour.`);
+    if (dark.length) parts.push(`Still dark: ${dark.join(", ")}.`);
+    return parts.join(" ");
+  }
+  function localAnswer(q) {
+    const s = q.toLowerCase(), d = state.data;
+    if (!d) return "I don't have any data yet.";
+    const h = hives.find(x => s.includes(x.name) || s.includes(x.label.toLowerCase()));
+    if (h) {
+      select(h.name);
+      if (h.agent) return describeAgent(h.agent);
+      return h.core ? `The heart is beating with ${pulsesLastHour()} reports in the last hour. The orchestrator moves in during Phase 2.` : `The ${h.name} hive isn't connected yet. ${h.role}`;
+    }
+    if (/money|p&l|pnl|profit|loss|earn|made/.test(s)) {
+      const total = d.agents.reduce((t, a) => t + (a.pnl || 0), 0);
+      return `Today the organism is ${dollars(total)}${state.source === "sample" ? ", in sample data" : ""}. ` + d.agents.map(a => `The ${a.name} is ${dollars(a.pnl || 0)}.`).join(" ");
+    }
+    if (/last|recent|finished|done|outbox/.test(s) && d.outbox && d.outbox.length) return `The latest finished work: ${d.outbox[0].title}. ${d.outbox[0].detail}`;
+    return "I can give you the daily briefing, or tell you what any hive is doing. Try: how is the trader doing?";
+  }
+  async function ask(q) {
+    q = q.trim(); if (!q) return;
+    show(q, "You");
+    if (/brief|daily|summary|update|how('?s| is| are) (it|everything|the agents|the bots|things|the terrarium)/i.test(q)) { say(briefing()); markBriefed(); return; }
+    const named = hives.find(x => q.toLowerCase().includes(x.name));
+    if (named) select(named.name);
+    if (!claudeSample) { say(localAnswer(q)); return; }
+    const d = state.data || {};
+    const snapshot = { source: state.source, now: new Date().toISOString(), agents: d.agents, outbox: (d.outbox || []).slice(0, 15), heartbeat_reports_last_hour: pulsesLastHour(), hives_not_connected: hives.filter(h => !h.core && !h.agent).map(h => h.name) };
+    const prompt = `You are the voice of the Terrarium, a glass terrarium where AI agents (hives) work to make money for ${TERRARIUM_CONFIG.ownerName}. Answer his question in 1 to 3 short spoken sentences, plain words, no lists or markdown. Use only the data below; if it doesn't say, say you don't know.${state.source === "sample" ? " The data is a made-up sample session, not real trading, and the trader is not connected to Robinhood yet; say so whenever money or trades come up." : ""}\n\nDashboard data:\n${JSON.stringify(snapshot).slice(0, 12000)}\n\nQuestion: ${q}`;
+    show("Thinking…");
+    try {
+      const { text } = await claudeSample(prompt, { modelTier: "quick", cache: false, onText: ({ text }) => show(text) });
+      say(text);
+    } catch (e) {
+      if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"].includes(e && e.code)) claudeSample = null;
+      say(localAnswer(q));
+    }
+  }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { micBtn.disabled = true; micBtn.style.opacity = 0.45; noteEl.textContent = "Talking needs a browser with speech recognition, like Chrome or Safari. You can type questions meanwhile, and answers are still read aloud."; }
+  micBtn.addEventListener("click", () => {
+    if (!SR) return;
+    if (listening && rec) { rec.stop(); return; }
+    try { speechSynthesis.cancel(); } catch (e) {}
+    noteEl.textContent = "";
+    rec = new SR();
+    rec.lang = "en-US"; rec.interimResults = true; rec.maxAlternatives = 1;
+    let finalText = "";
+    rec.onstart = () => { listening = true; micBtn.dataset.on = "true"; show("Listening…", "Mic"); };
+    rec.onresult = ev => {
+      let interim = "";
+      for (let i = ev.resultIndex; i < ev.results.length; i++) { const r = ev.results[i]; if (r.isFinal) finalText += r[0].transcript; else interim += r[0].transcript; }
+      show(finalText + interim, "You");
+    };
+    rec.onerror = ev => {
+      if (/not-allowed|service-not-allowed|audio-capture/.test(ev.error)) noteEl.textContent = "The microphone isn't available on this page right now. Type your question instead, or open the page from your computer in Chrome to talk to it.";
+      else if (ev.error === "no-speech") noteEl.textContent = "I didn't hear anything. Tap the mic and try again.";
+    };
+    rec.onend = () => { listening = false; micBtn.dataset.on = "false"; if (finalText.trim()) ask(finalText); else show("Tap the mic and ask what any hive is doing.", "Mic"); };
+    try { rec.start(); } catch (e) { noteEl.textContent = "The microphone couldn't start here. Type your question instead."; }
+  });
+
+  $("ask").addEventListener("submit", ev => { ev.preventDefault(); const q = $("q").value; $("q").value = ""; ask(q); });
+  briefBtn.addEventListener("click", () => { say(briefing()); markBriefed(); });
+  speakBtn.addEventListener("click", () => {
+    speakOn = !speakOn; speakBtn.setAttribute("aria-pressed", speakOn);
+    try { localStorage.setItem("terrarium.speak", speakOn ? "on" : "off"); } catch (e) {}
+    if (!speakOn) try { speechSynthesis.cancel(); } catch (e) {}
+  });
+  try { if ("speechSynthesis" in window) speechSynthesis.getVoices(); } catch (e) {}
+  // Claude answers free-form questions when the viewer allows it; otherwise the page answers simply on its own.
+  if (window.claude && window.claude.use) window.claude.use("sample").then(s => { claudeSample = s || null; }).catch(() => {});
+})();
+
+$("src-sample").addEventListener("click", () => setSource("sample"));
+$("src-live").addEventListener("click", () => setSource("live"));
+setInterval(() => { const h = hives.find(x => x.name === state.selected); if (h && h.agent) $("c-updated").textContent = ago(h.agent.last_updated); }, 1000);
+setSource(state.source);
+</script>

@@ -7,9 +7,7 @@ ReplayFeed reads CSVs so the full engine can be exercised without a broker:
   <dir>/minute/<SYMBOL>.csv   ts,open,high,low,close,volume   (ts ISO-8601 with offset, bar START time)
   <dir>/daily/<SYMBOL>.csv    date,volume,close   (close needed for the EMA trend filter)
 
-A live 1-minute feed is NOT wired yet: Robinhood's agentic MCP does not
-document historical intraday bars (see docs/robinhood-oauth-setup.md), so
-the source is a decision for the human.
+The live feed is YahooFeed in yahoo_feed.py.
 """
 import csv
 from abc import ABC, abstractmethod
@@ -31,6 +29,9 @@ class Bar:
 
 
 class MarketData(ABC):
+    def prepare(self, now: datetime, hot: list[str]) -> None:
+        """Called once per engine step before any reads. Live feeds fetch here;
+        `hot` lists the symbols that matter most this minute."""
     @abstractmethod
     def minute_bars(self, symbol: str, now: datetime) -> list[Bar]:
         """Today's regular-session 1-minute bars that have fully closed before `now`."""

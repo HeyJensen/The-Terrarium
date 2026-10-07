@@ -38,6 +38,9 @@
     "trend_slow_ema": 200,
     "trend_lookback_days": 252,
 
+    "data_source": "yahoo",
+    "yahoo_max_requests_per_minute": 50,
+    "max_bar_age_minutes": 3,
     "sim_slippage_bps": 5,
     "approval_timeout_seconds": 60,
     "loop_interval_seconds": 60

@@ -9,6 +9,7 @@ RobinhoodMCPBroker  the live route. NOT implemented: Robinhood's agentic
                Until then it refuses every call.
 """
 import itertools
+import json
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from datetime import date, datetime
@@ -119,6 +120,24 @@ class SimBroker(Broker):
 
     def is_easy_to_borrow(self, symbol):
         return symbol not in self.hard_to_borrow
+
+    # Dry-run state survives restarts so it stays in step with the engine's position file.
+    def save(self, path) -> None:
+        path.write_text(json.dumps({
+            "account_type": self.account_type, "cash": self.cash, "positions": self._positions,
+            "unsettled": [[u.amount, u.settles_on.isoformat()] for u in self._unsettled],
+            "next_id": next(self._ids), "today": self._today.isoformat() if self._today else None}))
+
+    @classmethod
+    def load_or_new(cls, path, starting_cash: float, account_type: str, slippage_bps: float) -> "SimBroker":
+        b = cls(starting_cash, account_type, slippage_bps)
+        if path.exists():
+            d = json.loads(path.read_text())
+            b.cash, b._positions = d["cash"], d["positions"]
+            b._unsettled = [_Unsettled(a, date.fromisoformat(s)) for a, s in d["unsettled"]]
+            b._ids = itertools.count(d["next_id"])
+            b._today = date.fromisoformat(d["today"]) if d["today"] else None
+        return b
 
 
 class RobinhoodMCPBroker(Broker):

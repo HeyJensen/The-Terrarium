@@ -7,7 +7,7 @@ import json
 import select
 import sys
 from dataclasses import asdict, dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from shared.market_calendar import is_regular_hours, to_et, trading_days_between
@@ -79,6 +79,7 @@ class TraderEngine:
         self.last_status = "idle"
         self.last_task = ""
         self._last_checked_bar: str | None = None
+        self._last_top: list[str] = []
 
     # ---- persistence -------------------------------------------------
     def _load_position(self) -> Position | None:
@@ -122,6 +123,7 @@ class TraderEngine:
         if not is_regular_hours(now):
             self._report("sleeping", "market closed")
             return
+        self.feed.prepare(now, hot=self._last_top + ([self.position.symbol] if self.position else []))
         today = to_et(now).date()
         if self.ledger["day"] != today.isoformat():
             self.ledger.update(day=today.isoformat(), tasks_today=0)
@@ -225,6 +227,7 @@ class TraderEngine:
                 rel_vols[sym], bars_by_symbol[sym] = rv, bars
 
         top = strategy.top_by_relative_volume(rel_vols, int(cfg.get("top_n_by_relative_volume", 10)))
+        self._last_top = [sym for sym, _ in top]
         period = int(cfg.get("rsi_period", 14))
         scan = []
         for sym, rv in top:
@@ -247,7 +250,15 @@ class TraderEngine:
         self._report("watching", f"scanned top {len(top)}, {len(signals)} signal(s)", acct.equity)
 
         mode = self._effective_mode(acct.equity)
+        max_age = timedelta(minutes=float(cfg.get("max_bar_age_minutes", 3)))
+        for s in signals:
+            last_close_at = bars_by_symbol[s["symbol"]][-1].ts + timedelta(minutes=1)
+            s["bar_age_s"] = round((now - last_close_at).total_seconds())
         for s in signals:  # already ordered by relative volume, highest first
+            if timedelta(seconds=s["bar_age_s"]) > max_age:
+                self.decisions.record("skip_signal", f"{s['signal'].upper()} skipped: newest bar is "
+                                      f"{s['bar_age_s']}s old (stale data)", at=now, **s)
+                continue
             if s.get("trend_ok") is False:
                 need = "50 EMA below 200 EMA" if s["signal"] == SHORT else "50 EMA above 200 EMA"
                 self.decisions.record("skip_signal", f"{s['signal'].upper()} skipped: daily trend filter needs {need}"

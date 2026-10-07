@@ -24,6 +24,11 @@ account. Nothing else.
 - **Sizing:** risk 1% of the $1,000 base with a 1% stop → about $1,000 notional,
   whole shares, capped by usable cash. One position at a time.
 
+## Data
+Yahoo Finance (unofficial, personal use). The top 10 names refresh every
+minute; the full S&P 500 ranking refreshes in rotation. No new entry is taken
+on bars more than 3 minutes old.
+
 ## Limits (hard-coded in `shared/risk.py`; config can only tighten them)
 - Daily loss −3% of start-of-day equity → kill switch: flatten and stop for the day.
 - One concurrent position. Sizing base capped at $1,000.

@@ -4,8 +4,8 @@
   python agents/trader/run.py --task check         validate config + guardrails, show what would run
   python agents/trader/run.py --task replay --data DIR [--state-dir DIR]
                                                    run the full engine over CSV bars with the simulator
-  python agents/trader/run.py --task trade         the live loop (refuses until a live data feed and
-                                                   broker are wired and armed; see docs/)
+  python agents/trader/run.py --task prefetch      cache a year of daily bars from Yahoo (run before the open)
+  python agents/trader/run.py --task trade         the minute loop on live Yahoo data; dry run only for now
 """
 import argparse
 import json
@@ -22,8 +22,9 @@ from shared.logger import DecisionLog, get_logger  # noqa: E402
 from shared.notifications import Notifier  # noqa: E402
 from shared.risk import effective_limits  # noqa: E402
 
-from agents.trader.broker import RobinhoodMCPBroker, SimBroker  # noqa: E402
+from agents.trader.broker import SimBroker  # noqa: E402
 from agents.trader.data_feed import ReplayFeed  # noqa: E402
+from agents.trader.yahoo_feed import YahooFeed  # noqa: E402
 from agents.trader.engine import TraderEngine  # noqa: E402
 
 AGENT = "trader"
@@ -93,31 +94,59 @@ def task_replay(settings, data_dir: Path, state_dir: Path, report: bool) -> int:
     return 0
 
 
+def make_yahoo_feed(settings, logger) -> YahooFeed:
+    cfg = settings["trader"]
+    return YahooFeed(load_universe(cfg), ROOT / "state" / "yahoo-cache", logger,
+                     max_requests_per_minute=int(cfg.get("yahoo_max_requests_per_minute", 50)))
+
+
+def task_prefetch(settings) -> int:
+    logger = get_logger(AGENT)
+    feed = make_yahoo_feed(settings, logger)
+    ok, failed = feed.prefetch_daily(datetime.now(timezone.utc))
+    logger.info(f"daily history cached for {ok} symbols, {failed} failed")
+    return 0 if failed == 0 else 1
+
+
 def task_trade(settings, report: bool) -> int:
+    """The live loop: real Yahoo data every minute.
+
+    dry_run: orders go to the simulator (no money moves); its cash and
+    positions persist in state/trader/ alongside the engine's.
+    live:    refused until the Robinhood MCP broker is implemented and approved.
+    """
     cfg = settings["trader"]
     logger = get_logger(AGENT)
     problem = routing_problem(cfg)
     if problem:
         logger.error(f"refusing to start: {problem}")
         return 2
-    # Neither a live 1-minute data feed nor the live broker is wired yet. Both need decisions
-    # from the human (data source, MCP client dependency). Stop here rather than guess.
-    logger.error("live loop not available yet: no live 1-minute data feed is configured and the "
-                 "Robinhood MCP broker is not implemented. See docs/robinhood-oauth-setup.md.")
     if cfg["order_routing"] == "live":
-        RobinhoodMCPBroker()  # documents the intended route; every call refuses
-    return 3
-
-
-def run_loop(engine, interval_s: int = 60) -> None:  # used once a live feed exists
-    while True:
-        engine.step(datetime.now(timezone.utc))
-        time.sleep(interval_s - (time.time() % interval_s) + 2)
+        logger.error("refusing to start: the Robinhood MCP broker is not implemented yet "
+                     "(see docs/robinhood-oauth-setup.md). Use order_routing dry_run.")
+        return 3
+    DEFAULT_STATE.mkdir(parents=True, exist_ok=True)
+    sim_path = DEFAULT_STATE / "sim_broker.json"
+    broker = SimBroker.load_or_new(sim_path, cfg["account_size_usd"], cfg["mode"], cfg.get("sim_slippage_bps", 5))
+    feed = make_yahoo_feed(settings, logger)
+    engine = build_engine(settings, broker, feed, load_universe(cfg), DEFAULT_STATE, logger, report)
+    logger.info("trader running in DRY RUN on Yahoo Finance data; no orders reach any broker. Ctrl+C to stop.")
+    interval = int(cfg.get("loop_interval_seconds", 60))
+    try:
+        while True:
+            engine.step(datetime.now(timezone.utc))
+            broker.save(sim_path)
+            # Wake a few seconds after each minute boundary so the last bar has closed.
+            time.sleep(interval - (time.time() % interval) + 3)
+    except KeyboardInterrupt:
+        broker.save(sim_path)
+        logger.info("stopped by user")
+        return 0
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Terrarium trader agent")
-    ap.add_argument("--task", choices=["check", "replay", "trade"])
+    ap.add_argument("--task", choices=["check", "prefetch", "replay", "trade"])
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--data", type=Path, help="replay data directory")
     ap.add_argument("--state-dir", type=Path, default=None)
@@ -140,6 +169,8 @@ def main(argv=None) -> int:
         if not args.data:
             ap.error("--task replay needs --data DIR")
         return task_replay(settings, args.data, args.state_dir or ROOT / "state" / "replay", args.report)
+    if args.task == "prefetch":
+        return task_prefetch(settings)
     if args.task == "trade":
         return task_trade(settings, args.report)
     ap.print_help()

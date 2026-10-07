@@ -63,7 +63,7 @@ run until the trailing stop or the 5-day max hold.
 - **Stops live in the engine, not at the broker.** If the engine or your
   computer stops, there is no stop protecting the position. Resting broker
   stop orders depend on what the MCP supports (unconfirmed).
-- **Market data is the open question.** The strategy needs 1-minute bars for
-  503 symbols every minute, plus 20 days of daily volume and a year of daily
-  closes per symbol. Robinhood's MCP doesn't
+- **Market data comes from Yahoo Finance** (Nathan's call). It's free but
+  unofficial and personal-use only; see market-data-yahoo.md. It refreshes
+  the top 10 names every minute and the rest of the S&P 500 in rotation. Robinhood's MCP doesn't
   document either.

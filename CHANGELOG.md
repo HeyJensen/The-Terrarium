@@ -1,5 +1,17 @@
 # Changelog: the Terrarium build log
 
+## 2026-10-07: Live market data (Yahoo Finance)
+
+- The Trader now reads real prices from Yahoo Finance: a year of daily bars
+  (cached once a day) and 1-minute bars all session.
+- It stays inside a request budget: the 10 names it's watching refresh every
+  minute, and the rest of the S&P 500 rotates through.
+- If Yahoo slows down or blocks, it backs off and won't open a trade on stale
+  prices.
+- `--task trade` now runs the full minute loop on live data in **dry run**.
+  Trades are simulated, and no orders go anywhere.
+- 38 tests.
+
 ## 2026-10-07: Trader strategy v0.2
 
 - Universe widened from the S&P 100 to the **S&P 500**.
