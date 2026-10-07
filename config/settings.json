@@ -1,0 +1,39 @@
+{
+  "project": {
+    "name": "The Terrarium",
+    "contact_email_env": "ORGANISM_EMAIL"
+  },
+  "dashboard": {
+    "host": "127.0.0.1",
+    "port": 8787
+  },
+  "notifications": {
+    "telegram_enabled": false
+  },
+  "trader": {
+    "order_routing": "dry_run",
+    "phase": "shakedown",
+    "mode": "cash",
+
+    "account_size_usd": 1000,
+    "risk_per_trade_pct": 1.0,
+    "take_profit_pct": 2.0,
+    "stop_loss_pct": 1.0,
+    "max_concurrent_positions": 1,
+    "max_hold_days": 5,
+    "daily_loss_limit_pct": 3.0,
+    "kill_switch_flattens_position": true,
+    "allow_fractional_shares": false,
+
+    "universe_file": "config/universe_sp100.json",
+    "top_n_by_relative_volume": 10,
+    "relative_volume_lookback_days": 20,
+    "rsi_period": 14,
+    "rsi_short_at_or_above": 80,
+    "rsi_long_at_or_below": 15,
+
+    "sim_slippage_bps": 5,
+    "approval_timeout_seconds": 60,
+    "loop_interval_seconds": 60
+  }
+}

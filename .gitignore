@@ -1,0 +1,12 @@
+# Secrets never enter the repo
+.env
+*.env
+!config/.env.example
+
+# Runtime output
+logs/
+state/
+dashboard/data/
+__pycache__/
+*.pyc
+.venv/

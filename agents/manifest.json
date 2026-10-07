@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "agents": [
+    {
+      "name": "trader",
+      "path": "agents/trader",
+      "type": "trading",
+      "stream": "trading",
+      "enabled": true
+    }
+  ]
+}
