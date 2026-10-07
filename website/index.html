@@ -105,7 +105,35 @@ footer.strip { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 
 .hb .axis { display: flex; justify-content: space-between; font-family: var(--f-mono); font-size: 10.5px; color: var(--ink-faint); margin-top: 4px; }
 .outbox ol.log { max-height: 112px; overflow: auto; }
 
-@media (min-width: 961px) { .app { height: 100%; grid-template-rows: auto minmax(0, 1fr) auto; } }
+
+/* the trader's live checklist */
+.scan-wrap { overflow-x: auto; margin-top: 8px; }
+table.scan { width: 100%; border-collapse: collapse; font: 12px var(--f-mono); font-variant-numeric: tabular-nums; }
+table.scan th { text-align: left; font: 600 10px var(--f-body); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); padding: 4px 6px; }
+table.scan td { padding: 4px 6px; border-top: 1px solid var(--line); white-space: nowrap; }
+table.scan td.sym { font-family: var(--f-body); font-weight: 700; }
+table.scan td.ok { color: var(--gain); } table.scan td.no { color: var(--loss); } table.scan td.na { color: var(--ink-faint); }
+table.scan tr.ready td { background: rgba(255, 179, 71, 0.1); }
+/* signal ledger */
+.ledger { display: flex; flex-direction: column; gap: 12px; }
+.ledger-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 12px 24px; }
+.ledger-head h3 { margin: 0; font-family: var(--f-display); font-weight: 800; font-size: 20px; letter-spacing: 0.04em; text-transform: uppercase; }
+.ledger-sub { margin: 4px 0 0; color: var(--ink-dim); font-size: 13.5px; max-width: 62ch; }
+.ledger-stats { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+.ledger-scroll { overflow: auto; max-height: 340px; border-top: 1px solid var(--line); }
+table.sig { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
+table.sig th { position: sticky; top: 0; background: var(--glass); text-align: left; font-weight: 600; font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); padding: 8px 10px; border-bottom: 1px solid var(--line); }
+table.sig td { padding: 7px 10px; border-bottom: 1px solid var(--line); font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.sig td.sym { font-family: var(--f-body); font-weight: 700; }
+table.sig .num { text-align: right; }
+table.sig tr.open td { background: rgba(89, 240, 212, 0.04); }
+.side { display: inline-block; font: 600 11px var(--f-mono); letter-spacing: 0.06em; padding: 2px 8px; border-radius: 6px; }
+.side.buy { color: var(--gain); background: rgba(126, 232, 160, 0.12); }
+.side.short { color: var(--loss); background: rgba(255, 125, 138, 0.12); }
+.st-open { color: var(--lume); }
+.st-closed { color: var(--ink-dim); }
+.ledger .empty { margin: 4px 0; }
+@media (min-width: 961px) { main.body { height: clamp(560px, 76vh, 780px); } }
 @media (max-width: 960px) {
   main.body { grid-template-columns: minmax(0, 1fr); }
   .left { grid-template-rows: auto auto; }
@@ -130,7 +158,7 @@ footer.strip { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 
     </div>
     <div class="vitals">
       <div class="vital"><span class="k">Hives alive</span><span class="v" id="v-alive">–</span></div>
-      <div class="vital"><span class="k">P&amp;L today</span><span class="v" id="v-pnl">–</span></div>
+      <div class="vital"><span class="k">Bot P&amp;L today</span><span class="v" id="v-pnl">–</span></div>
       <div class="vital"><span class="k">Heartbeats, last hour</span><span class="v" id="v-hb">–</span></div>
       <div class="source" role="group" aria-label="Data source">
         <button id="src-sample" type="button" aria-pressed="true">Sample data</button>
@@ -184,6 +212,10 @@ footer.strip { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 
           </div>
         </div>
       </div>
+      <div id="c-scan" hidden>
+        <div class="section-h"><h3>Checking now</h3><span id="c-scan-note"></span></div>
+        <div class="scan-wrap"><table class="scan" id="c-scan-table"></table></div>
+      </div>
       <div id="c-dormant" hidden><div class="howto" id="c-howto"></div></div>
       <div id="c-activity">
         <div class="section-h"><h3>What it's doing</h3><span>reports seen on this page</span></div>
@@ -195,6 +227,27 @@ footer.strip { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 
       </div>
     </aside>
   </main>
+
+  <section class="panel ledger" aria-label="Signal ledger">
+    <div class="ledger-head">
+      <div>
+        <h3>Signal ledger</h3>
+        <p class="ledger-sub">Every trade the Terrarium signals, scored from its signal price with $1,000 each and no one-trade-at-a-time limit. Your bot takes one trade at a time, so check its trades against these rows.</p>
+      </div>
+      <div class="ledger-stats">
+        <div class="vital"><span class="k">Signal P&amp;L, all time</span><span class="v" id="l-total">–</span></div>
+        <div class="vital"><span class="k">Today</span><span class="v" id="l-today">–</span></div>
+        <div class="vital"><span class="k">Open now</span><span class="v" id="l-open">–</span></div>
+        <div class="vital"><span class="k">Win rate</span><span class="v" id="l-win">–</span></div>
+      </div>
+    </div>
+    <div class="ledger-scroll">
+      <table class="sig">
+        <thead><tr><th>Time</th><th>Stock</th><th>Side</th><th class="num">Signal price</th><th class="num">RSI</th><th class="num">Rel. vol</th><th class="num">Now / exit</th><th>Status</th><th class="num">P&amp;L %</th><th class="num">P&amp;L per $1k</th></tr></thead>
+        <tbody id="l-rows"></tbody>
+      </table>
+    </div>
+  </section>
 
   <footer class="strip">
     <div class="panel hb">
@@ -220,8 +273,10 @@ footer.strip { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 
  * ------------------------------------------------------------------ */
 const TERRARIUM_CONFIG = {
   source: "sample",
-  apiBase: "http://127.0.0.1:8787",
+  apiBase: "http://127.0.0.1:8787",   // a dashboard server on this computer
+  feedUrl: null,                      // or a hosted scanner's dashboard.json (found automatically on *.github.io)
   pollMs: 5000,
+  feedPollMs: 60000,
   ownerName: "Nathan",
 };
 
@@ -232,7 +287,7 @@ const PLANNED = [
   { name: "orchestrator", label: "Heart", core: true, u: 0.515, v: 0.5, r: 0.15,
     role: "The orchestrator lives here from Phase 2: it assigns tasks, watches every hive's health and writes the daily briefing. Until then it beats with the organism's heartbeat." },
   { name: "trader", u: 0.2, v: 0.42, r: 0.165, base: "stump",
-    role: "RSI(14) on 1-minute bars across the 10 highest relative-volume S&P 500 names, filtered by the daily 50/200 EMA trend. Buys at RSI 15 or below, shorts at 85 or above. One position at a time; −1% stop that trails 1% behind once a trade is up 2%." },
+    role: "RSI(14) on 1-minute bars across the 10 highest relative-volume S&P 100 names, filtered by the daily 50/200 EMA trend. Buys at RSI 15 or below, shorts at 85 or above. One position at a time; −1% stop that trails 1% behind once a trade is up 2%." },
   { name: "content", u: 0.8, v: 0.27, r: 0.145, base: "ledge",
     role: "Drafts blog posts, YouTube scripts and video hooks for the build log." },
   { name: "etsy", u: 0.82, v: 0.69, r: 0.135, base: "mound",
@@ -382,6 +437,17 @@ const state = {
   logs: {}, flashes: {}, lastSeen: {}, outboxSeen: 0,
 };
 try { const q = new URLSearchParams(location.search); if (q.get("api")) { state.apiBase = q.get("api"); state.source = "live"; } } catch (e) {}
+// Hosted on GitHub Pages: the scanner publishes to the same repository's terrarium-data branch.
+state.feedUrl = TERRARIUM_CONFIG.feedUrl;
+try {
+  const q = new URLSearchParams(location.search);
+  if (q.get("feed")) state.feedUrl = q.get("feed");
+  else if (!state.feedUrl && location.hostname.endsWith(".github.io")) {
+    const owner = location.hostname.split(".")[0], repo = location.pathname.split("/").filter(Boolean)[0] || `${owner}.github.io`;
+    state.feedUrl = `https://raw.githubusercontent.com/${owner}/${repo}/terrarium-data/dashboard.json`;
+  }
+} catch (e) {}
+if (state.feedUrl) state.source = "live";
 if (location.hash === "#live") state.source = "live";
 
 const $ = id => document.getElementById(id);
@@ -411,11 +477,25 @@ function ingest(data) {
 }
 
 async function pollLive() {
+  if (state.feedUrl) {
+    try {
+      const r = await fetch(state.feedUrl + (state.feedUrl.includes("?") ? "&" : "?") + "t=" + Math.floor(Date.now() / 60e3), { cache: "no-store" });
+      if (!r.ok) throw new Error(r.status === 404 ? "the scanner hasn't published yet" : "HTTP " + r.status);
+      state.liveError = null;
+      ingest(await r.json());
+    } catch (e) { state.liveError = e.message || String(e); render(); }
+    return;
+  }
   try {
     const r = await fetch(state.apiBase.replace(/\/$/, "") + "/api/dashboard", { cache: "no-store" });
     if (!r.ok) throw new Error("HTTP " + r.status);
     state.liveError = null;
-    ingest(await r.json());
+    const data = await r.json();
+    if (!("signals" in data)) {
+      try { const r2 = await fetch(state.apiBase.replace(/\/$/, "") + "/api/signals", { cache: "no-store" }); data.signals = r2.ok ? await r2.json() : null; }
+      catch (e) { data.signals = null; }
+    }
+    ingest(data);
   } catch (e) { state.liveError = e.message || String(e); render(); }
 }
 
@@ -431,7 +511,7 @@ function setSource(src) {
     timer = setInterval(() => { simStep(); ingest(structuredClone(sample)); }, 3200);
   } else {
     state.liveError = null; buildHives(); render(); pollLive();
-    timer = setInterval(pollLive, TERRARIUM_CONFIG.pollMs);
+    timer = setInterval(pollLive, state.feedUrl ? TERRARIUM_CONFIG.feedPollMs : TERRARIUM_CONFIG.pollMs);
   }
 }
 
@@ -483,6 +563,11 @@ function render() {
   const t = document.createElement("span");
   if (state.source === "sample") { t.className = "tag warn"; t.textContent = "SAMPLE DATA · made-up trades, not connected to Robinhood"; }
   else if (state.liveError) { t.className = "tag err"; t.textContent = `Can't reach the dashboard at ${state.apiBase}. Start it with python -m dashboard.server and open this page on the same computer.`; }
+  else if (state.feedUrl) {
+    t.className = "tag";
+    const age = data && data.updated_at ? ago(data.updated_at) : null;
+    t.textContent = !data ? "Connecting to the scanner…" : `Live · Yahoo Finance via the hosted scanner · updated ${age}` + (marketOpenNow() ? "" : " · market closed");
+  }
   else { t.className = "tag"; t.textContent = data ? `Live from ${state.apiBase}` : `Connecting to ${state.apiBase}…`; }
   $("banner").replaceChildren(t);
 
@@ -535,6 +620,78 @@ function render() {
   gob.replaceChildren(...all.slice(0, 20).map(o => li(hhmm(o.ts), colorFor((agents.find(x => x.name === o.agent) || {}).status), `${o.agent} · ${o.title}`, o.detail)));
   if (!all.length) gob.append(emptyNote(data ? "No finished work yet." : "Waiting for data."));
   renderHeartbeat((data && data.heartbeat) || []);
+  renderLedger(data);
+  renderScan(h.name === "trader" && data ? data.scan : null);
+}
+
+
+function marketOpenNow() {
+  const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+  const m = et.getHours() * 60 + et.getMinutes(), d = et.getDay();
+  return d > 0 && d < 6 && m >= 570 && m < 960;
+}
+
+function renderScan(scan) {
+  const box = $("c-scan");
+  if (!scan || !scan.rows || !scan.rows.length) { box.hidden = true; return; }
+  box.hidden = false;
+  $("c-scan-note").textContent = `${hhmm(scan.ts)} · ${scan.symbols_with_data} of ${scan.universe} stocks with data`;
+  const labels = { rsi: "Signal", trend: "Trend", fresh_data: "Fresh", side_allowed: "Side", no_open_trade: "Flat" };
+  const head = document.createElement("tr");
+  for (const h of ["Stock", "Rel. vol", "RSI", ...Object.values(labels)]) { const th = document.createElement("th"); th.textContent = h; head.append(th); }
+  const rows = scan.rows.map(r => {
+    const tr = document.createElement("tr");
+    if (r.signal && Object.values(r.checks || {}).every(Boolean)) tr.className = "ready";
+    const td = (x, cls) => { const c = document.createElement("td"); c.textContent = x; if (cls) c.className = cls; return c; };
+    tr.append(td(r.symbol, "sym"), td(r.rel_vol != null ? Number(r.rel_vol).toFixed(1) + "x" : "–"), td(r.rsi != null ? Number(r.rsi).toFixed(1) : "–"));
+    for (const k of Object.keys(labels)) {
+      const v = (r.checks || {})[k];
+      const na = (k === "trend" || k === "side_allowed") && !r.signal;
+      tr.append(td(na ? "·" : v ? "✓" : "✗", na ? "na" : v ? "ok" : "no"));
+    }
+    return tr;
+  });
+  $("c-scan-table").replaceChildren(head, ...rows);
+}
+
+function renderLedger(data) {
+  const sigs = data ? data.signals : undefined;
+  const body = $("l-rows");
+  const set = (id, text, n) => { const el = $(id); el.textContent = text; el.style.color = n > 0 ? "var(--gain)" : n < 0 ? "var(--loss)" : "var(--ink)"; };
+  if (!Array.isArray(sigs) || !sigs.length) {
+    for (const id of ["l-total", "l-today", "l-open", "l-win"]) set(id, "–", 0);
+    const tr = document.createElement("tr"), td = document.createElement("td");
+    td.colSpan = 10; td.className = "empty"; td.style.fontFamily = "var(--f-body)";
+    td.textContent = !data ? "Waiting for data." : sigs === null || sigs === undefined
+      ? "This dashboard doesn't publish signals yet. They appear here once the Trader sends them (GET /api/signals)."
+      : "No signals yet.";
+    tr.append(td); body.replaceChildren(tr);
+    return;
+  }
+  const usd = s => (s.pnl_pct || 0) * 10;
+  const today = new Date().toDateString();
+  const closed = sigs.filter(s => s.status === "closed");
+  const total = sigs.reduce((t, s) => t + usd(s), 0);
+  const todays = sigs.filter(s => new Date(s.ts).toDateString() === today).reduce((t, s) => t + usd(s), 0);
+  set("l-total", signedMoney(total), total);
+  set("l-today", signedMoney(todays), todays);
+  set("l-open", String(sigs.length - closed.length), 0);
+  set("l-win", closed.length ? Math.round(100 * closed.filter(s => s.pnl_pct > 0).length / closed.length) + "%" : "–", 0);
+  body.replaceChildren(...sigs.slice(0, 150).map(s => {
+    const tr = document.createElement("tr");
+    if (s.status === "open") tr.className = "open";
+    const cell = (text, cls) => { const td = document.createElement("td"); if (cls) td.className = cls; td.textContent = text; return td; };
+    const side = document.createElement("span"); side.className = "side " + (s.side === "short" ? "short" : "buy"); side.textContent = (s.side || "").toUpperCase();
+    const sideTd = document.createElement("td"); sideTd.append(side);
+    const now = s.status === "closed" ? s.exit_price : s.last_price;
+    const st = cell(s.status === "open" ? "open" : (s.exit_reason || "closed"), s.status === "open" ? "st-open" : "st-closed");
+    const pct = cell((s.pnl_pct > 0 ? "+" : "") + (s.pnl_pct ?? 0).toFixed(2) + "%", "num");
+    const dol = cell(signedMoney(usd(s)), "num");
+    for (const el of [pct, dol]) el.style.color = s.pnl_pct > 0 ? "var(--gain)" : s.pnl_pct < 0 ? "var(--loss)" : "var(--ink)";
+    tr.append(cell(hhmm(s.ts)), cell(s.symbol, "sym"), sideTd, cell(Number(s.price).toFixed(2), "num"), cell(s.rsi != null ? Number(s.rsi).toFixed(1) : "–", "num"),
+      cell(s.rel_volume != null ? Number(s.rel_volume).toFixed(1) + "x" : "–", "num"), cell(now != null ? Number(now).toFixed(2) : "–", "num"), st, pct, dol);
+    return tr;
+  }));
 }
 
 function renderHeartbeat(hb) {
@@ -1138,6 +1295,11 @@ scene = (() => {
     parts.push(`${live.length} of ${hives.length - 1} hives are active, and the organism is ${dollars(total)} today.`);
     for (const a of live) parts.push(describeAgent(a));
     if (done.length) parts.push(`In the last day it finished ${done.length} piece${done.length > 1 ? "s" : ""} of work. Most recent: ${done[0].title}. ${done[0].detail}`);
+    if (Array.isArray(d.signals) && d.signals.length) {
+      const today = d.signals.filter(s => new Date(s.ts).toDateString() === new Date().toDateString());
+      const usd = today.reduce((t, s) => t + (s.pnl_pct || 0) * 10, 0);
+      if (today.length) parts.push(`The Terrarium sent ${today.length} signal${today.length > 1 ? "s" : ""} today. Taken at $1,000 each, they're ${dollars(usd)} together, with ${today.filter(s => s.status === "open").length} still open.`);
+    }
     parts.push(`The heart logged ${pulsesLastHour()} reports in the last hour.`);
     if (dark.length) parts.push(`Still dark: ${dark.join(", ")}.`);
     return parts.join(" ");
@@ -1166,7 +1328,7 @@ scene = (() => {
     if (named) select(named.name);
     if (!claudeSample) { say(localAnswer(q)); return; }
     const d = state.data || {};
-    const snapshot = { source: state.source, now: new Date().toISOString(), agents: d.agents, outbox: (d.outbox || []).slice(0, 15), heartbeat_reports_last_hour: pulsesLastHour(), hives_not_connected: hives.filter(h => !h.core && !h.agent).map(h => h.name) };
+    const snapshot = { source: state.source, now: new Date().toISOString(), agents: d.agents, outbox: (d.outbox || []).slice(0, 15), signals: (d.signals || []).slice(0, 30), heartbeat_reports_last_hour: pulsesLastHour(), hives_not_connected: hives.filter(h => !h.core && !h.agent).map(h => h.name) };
     const prompt = `You are the voice of the Terrarium, a glass terrarium where AI agents (hives) work to make money for ${TERRARIUM_CONFIG.ownerName}. Answer his question in 1 to 3 short spoken sentences, plain words, no lists or markdown. Use only the data below; if it doesn't say, say you don't know.${state.source === "sample" ? " The data is a made-up sample session, not real trading, and the trader is not connected to Robinhood yet; say so whenever money or trades come up." : ""}\n\nDashboard data:\n${JSON.stringify(snapshot).slice(0, 12000)}\n\nQuestion: ${q}`;
     show("Thinking…");
     try {

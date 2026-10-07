@@ -56,3 +56,63 @@ sleeping, halted.
 
 Not deployed anywhere. Making it public needs the dashboard API exposed
 somewhere reachable, which is Nathan's call.
+
+## Signal ledger
+
+The ledger lists every signal the Terrarium sends and scores each one as if it
+were taken at its signal price with $1,000, with no one-trade-at-a-time limit.
+Bots that take one trade at a time can compare their own fills against it.
+Exits follow the strategy: −1% stop; once a signal is up 2%, the stop trails 1%
+behind the best price.
+
+The page reads `signals` from `GET /api/dashboard`, or `GET /api/signals` if
+the dashboard response has no `signals` key. **The dashboard does not serve
+signals yet**; the Trader side needs to publish them. Shape, newest first:
+
+```json
+[{
+  "id": "s1791340000NVDA",
+  "agent": "trader",
+  "ts": "2026-10-07T14:31:00+00:00",
+  "symbol": "NVDA",
+  "side": "buy",               // "buy" or "short"
+  "price": 181.81,             // signal price (the bid the bot is told to use)
+  "rsi": 14.9,
+  "rel_volume": 3.3,
+  "status": "open",            // "open" or "closed"
+  "last_price": 182.10,        // latest price while open
+  "best_pct": 0.16,            // best gain so far, % (drives the trailing stop)
+  "pnl_pct": 0.16,             // current or final gain, %
+  "exit_price": null,
+  "exit_ts": null,
+  "exit_reason": null          // "stop loss" or "trailing stop" once closed
+}]
+```
+
+P&L per signal in dollars is `pnl_pct × 10` (a $1,000 position).
+
+## Hosted scanner (live data without anyone's computer on)
+
+`scanner.py` runs the Trader's strategy on Yahoo Finance for the **S&P 100**
+with no broker attached and writes `dashboard.json` (same shape as
+`/api/dashboard`, plus `scan`: what the latest minute checked and which
+requirements each stock met). It reports only; it never places orders.
+
+It runs free on GitHub Actions in a **public** repository:
+
+- `.github/workflows/terrarium-scanner.yml` starts on weekday mornings and
+  scans every minute until the close (two back-to-back jobs, because GitHub
+  stops a job after 6 hours). After each minute `publish.sh` pushes the file
+  to the `terrarium-data` branch.
+- `.github/workflows/terrarium-site.yml` publishes this folder to GitHub
+  Pages. On `*.github.io` the page finds
+  `raw.githubusercontent.com/<owner>/<repo>/terrarium-data/dashboard.json`
+  by itself and opens in Live mode.
+
+Limits of the free route: GitHub can start scheduled jobs late, sometimes by
+10 minutes or more; the raw file can be up to about 5 minutes behind; and
+Yahoo may throttle GitHub's servers (the scanner backs off and keeps the last
+good data).
+
+Test without the network: `python website/scanner.py --replay DIR --out out.json`.
+Point any copy of the page at a feed with `index.html?feed=<url>`.

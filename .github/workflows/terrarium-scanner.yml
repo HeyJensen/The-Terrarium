@@ -1,0 +1,58 @@
+# Hosted scanner: runs the Trader's strategy on Yahoo Finance data during market
+# hours and publishes website data to the `terrarium-data` branch. It reports
+# only; it never places orders. Free on a public repository.
+name: Terrarium scanner
+
+on:
+  schedule:
+    - cron: "15 13 * * 1-5"   # before the open (9:15 ET in summer, 8:15 ET in winter)
+    - cron: "50 18 * * 1-5"   # second leg: GitHub stops a job after 6 hours
+  workflow_dispatch:
+
+concurrency:
+  group: terrarium-scanner
+  cancel-in-progress: false   # the second leg waits for the first to finish
+
+permissions:
+  contents: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check out the data branch (or start it)
+        run: |
+          git config user.name "terrarium-scanner"
+          git config user.email "terrarium-scanner@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin terrarium-data >/dev/null; then
+            git fetch -q origin terrarium-data
+            git worktree add -q site-data origin/terrarium-data
+            git -C site-data checkout -q -B terrarium-data
+          else
+            git worktree add -q --orphan -b terrarium-data site-data
+            printf 'state/yahoo-cache/\nstate/logs/\n*.tmp\n' > site-data/.gitignore
+          fi
+
+      - name: Restore cached Yahoo daily history
+        uses: actions/cache@v4
+        with:
+          path: site-data/state/yahoo-cache
+          key: yahoo-daily-${{ github.run_id }}
+          restore-keys: yahoo-daily-
+
+      - name: Scan until the close
+        env:
+          DATA_DIR: site-data
+        run: |
+          python website/scanner.py \
+            --out site-data/dashboard.json \
+            --state-dir site-data/state \
+            --max-minutes 345 \
+            --publish-cmd "bash website/publish.sh"
