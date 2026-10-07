@@ -51,6 +51,7 @@ class Snapshot:
         self.outbox: list[dict] = old.get("outbox", [])
         self.heartbeat: dict[str, int] = {h["minute"]: h["events"] for h in old.get("heartbeat", [])}
         self.closed_seen = {o.get("id") for o in self.outbox}
+        self.feed_health: dict = {}
 
     def report(self, status, task, tasks_today, pnl):
         self.status = {"name": AGENT, "status": status, "current_task": task, "tasks_today": int(tasks_today),
@@ -93,6 +94,7 @@ class Snapshot:
             "heartbeat": [{"minute": k, "events": v} for k, v in sorted(self.heartbeat.items())],
             "signals": signals,
             "scan": scan,
+            "feed": self.feed_health,
         }
         self.path.parent.mkdir(parents=True, exist_ok=True)
         tmp = self.path.with_suffix(".tmp")
@@ -155,6 +157,8 @@ def main(argv=None) -> int:
                      max_requests_per_minute=int(cfg.get("yahoo_max_requests_per_minute", 50)))
     ok, failed = feed.prefetch_daily(datetime.now(timezone.utc))  # cached per day; cheap after the first run
     logger.info(f"daily history ready for {ok} symbols, {failed} failed")
+    snap.feed_health = {"source": "yahoo", "daily_history_ok": ok, "daily_history_failed": failed,
+                        "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds")}
     engine, broker, sim_path = build(settings, feed, universe, state_dir, snap, logger)
     started = time.time()
     seen_open = False
