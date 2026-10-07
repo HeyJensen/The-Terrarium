@@ -109,6 +109,70 @@ class YahooFeedTests(unittest.TestCase):
         self.assertLess(last_day.astimezone(ET).date(), NOW.date())
 
 
+class FastSnapshots(unittest.TestCase):
+    """15-second mode: batched quotes for every stock, building the forming 1-minute bar."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.logger = get_logger("yahoo-fast-test", Path(self.tmp.name) / "logs")
+        self.fake = FakeYahoo()
+        self.quote_calls = []
+        self.prices = {}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def quotes(self, symbols):
+        self.quote_calls.append(list(symbols))
+        return [{"symbol": s.replace(".", "-"), "regularMarketPrice": self.prices[s][0],
+                 "regularMarketVolume": self.prices[s][1], "regularMarketTime": int(self.prices[s][2].timestamp()),
+                 "bid": self.prices[s][0] - 0.01, "ask": self.prices[s][0] + 0.01} for s in symbols]
+
+    def test_whole_universe_in_three_requests_per_step(self):
+        universe = [f"S{i:03d}" for i in range(101)]
+        f = YahooFeed(universe, Path(self.tmp.name) / "cache", self.logger, max_requests_per_minute=50,
+                      get_json=self.fake, sleep=lambda s: None, request_spacing_s=0, quotes_fn=self.quotes,
+                      steps_per_minute=4, seed_per_step=8)
+        f.prefetch_daily(NOW)
+        self.fake.urls.clear()
+        t = NOW.replace(second=15)
+        self.prices = {s: (100.0, 1_000_000, t) for s in universe}
+        f.prepare(t, hot=[])
+        self.assertEqual([len(c) for c in self.quote_calls], [50, 50, 1])
+        self.assertLessEqual(len(self.fake.urls), 12 - 3)  # chart seeding stays inside the step budget
+        self.assertEqual(f.bid_ask("S000"), (99.99, 100.01))
+        self.assertEqual(f.today_volume("S000", t), 1_000_000)
+
+    def test_forming_bar_updates_then_closes_with_volume(self):
+        f = YahooFeed(["AAPL"], Path(self.tmp.name) / "cache", self.logger, get_json=self.fake,
+                      sleep=lambda s: None, request_spacing_s=0, quotes_fn=self.quotes, steps_per_minute=4,
+                      seed_per_step=0)
+        f._chart_synced["AAPL"] = NOW  # skip chart seeding for this test
+        m = NOW.replace(second=0, microsecond=0)
+        for sec, price, vol in [(5, 100.0, 1000), (20, 101.0, 1300), (35, 99.5, 1600), (50, 100.5, 2000)]:
+            self.prices = {"AAPL": (price, vol, m + timedelta(seconds=sec))}
+            f.prepare(m + timedelta(seconds=sec + 1), hot=[])
+        bar = f.forming_bar("AAPL", m + timedelta(seconds=55))
+        self.assertEqual((bar.open, bar.high, bar.low, bar.close), (100.0, 101.0, 99.5, 100.5))
+        self.assertEqual(bar.volume, 1000)  # traded since the first snapshot of the minute
+        self.prices = {"AAPL": (100.7, 2300, m + timedelta(minutes=1, seconds=5))}
+        f.prepare(m + timedelta(minutes=1, seconds=6), hot=[])
+        closed = f.minute_bars("AAPL", m + timedelta(minutes=1, seconds=6))
+        self.assertEqual(closed[-1].ts, m)
+        self.assertEqual(closed[-1].close, 100.5)
+        self.assertEqual(f.forming_bar("AAPL", m + timedelta(minutes=1, seconds=6)).volume, 300)
+
+    def test_quote_failure_falls_back_to_chart_rotation(self):
+        def broken(symbols):
+            raise urllib.error.HTTPError("u", 401, "x", {}, None)
+        f = YahooFeed(["AAPL", "MSFT"], Path(self.tmp.name) / "cache", self.logger, max_requests_per_minute=10,
+                      get_json=self.fake, sleep=lambda s: None, request_spacing_s=0, quotes_fn=broken)
+        f.prefetch_daily(NOW)
+        f.prepare(NOW, hot=["AAPL"])
+        self.assertTrue(f.minute_bars("AAPL", NOW))
+        self.assertTrue(f.minute_bars("MSFT", NOW))
+
+
 class SimBrokerPersistence(unittest.TestCase):
     def test_roundtrip(self):
         with tempfile.TemporaryDirectory() as d:

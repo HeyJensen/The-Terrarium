@@ -117,6 +117,7 @@ class SimBroker(Broker):
         if passive_fills not in ("assume", "touch", "never"):
             raise ValueError("passive_fills must be assume, touch or never")
         self.passive_fills = passive_fills
+        self.quote_source = None  # symbol -> (bid, ask) or None; set by the live loop from the feed
         self._orders: dict[str, OrderStatus] = {}
         self._last_ref: dict[str, float] = {}
 
@@ -135,6 +136,9 @@ class SimBroker(Broker):
 
     def quote(self, symbol, ref_price):
         self._last_ref[symbol] = ref_price
+        real = self.quote_source(symbol) if self.quote_source else None
+        if real:  # live bid/ask from the data feed when it has one
+            return Quote(real[0], real[1])
         return Quote(round(ref_price * (1 - self.spread / 2), 4), round(ref_price * (1 + self.spread / 2), 4))
 
     def place_limit_order(self, symbol, side, qty, limit, now):

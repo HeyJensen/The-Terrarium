@@ -41,10 +41,11 @@
     "data_source": "yahoo",
     "yahoo_max_requests_per_minute": 50,
     "max_bar_age_minutes": 3,
+    "evaluate_forming_bar": true,
     "entry_order_timeout_seconds": 10,
     "sim_slippage_bps": 5,
     "sim_spread_bps": 4,
     "approval_timeout_seconds": 60,
-    "loop_interval_seconds": 60
+    "loop_interval_seconds": 15
   }
 }

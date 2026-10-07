@@ -1,5 +1,13 @@
 # Changelog: the Terrarium build log
 
+## 2026-10-07: Every stock, every 15 seconds
+
+- The Trader now refreshes all 101 S&P 100 stocks at once every 15 seconds,
+  using one batched Yahoo request per 50 stocks.
+- Signals, stops and the trailing stop are checked on the live price inside
+  the minute, not just when the minute closes.
+- Buy and short limits now use Yahoo's real bid.
+
 ## 2026-10-07: Facebook through Buffer, Etsy sheets (free tier)
 
 - The social bot can now post to a **Facebook Page through Buffer's free

@@ -80,6 +80,19 @@ class SignalLedger:
                 if new != t["stop"]:
                     t["stop"], t["stop_moved"] = new, True
                 e["last_price"] = bar.close
+            f = feed.forming_bar(e["symbol"], now) if hasattr(feed, "forming_bar") else None
+            if e["status"] == "open" and f and f.ts >= start:
+                hit = strategy.bar_exit(t["side"], f.close, f.close, f.close, t["stop"], target)
+                if hit:
+                    moved = t.get("stop_moved", False)
+                    self._close(e, t, f.close, now, "trailing stop" if hit[0].startswith("stop") and moved
+                                else REASONS[hit[0]])
+                else:
+                    t["best"] = max(t["best"], f.close) if t["side"] == LONG else min(t["best"], f.close)
+                    new = strategy.ratchet_stop(t["side"], e["price"], t["best"], t["stop"], t["trigger"], mode, trail)
+                    if new != t["stop"]:
+                        t["stop"], t["stop_moved"] = new, True
+                    e["last_price"] = f.close
             if e["status"] == "open":
                 if trading_days_between(date.fromisoformat(t["day"]), today) >= max_hold and bars:
                     self._close(e, t, bars[-1].close, now, "max hold")

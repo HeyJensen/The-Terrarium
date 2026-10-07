@@ -30,8 +30,10 @@ account. Nothing else.
   whole shares, capped by usable cash. One position at a time.
 
 ## Data
-Yahoo Finance (unofficial, personal use). The top 10 names refresh every
-minute; the rest of the S&P 100 refreshes in rotation (about every 2 minutes). No new entry is taken
+Yahoo Finance (unofficial, personal use). Every 15 seconds one batched
+snapshot refreshes all 101 stocks and updates the forming 1-minute bar; RSI
+and stops use that live price. Falls back to per-stock rotation if Yahoo
+refuses the batch request. No new entry is taken
 on bars more than 3 minutes old.
 
 ## Limits (hard-coded in `shared/risk.py`; config can only tighten them)

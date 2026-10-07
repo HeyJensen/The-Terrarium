@@ -5,6 +5,8 @@ from pathlib import Path
 
 from shared.market_calendar import ET
 
+from agents.trader.data_feed import Bar  # noqa: F401 (re-exported for tests)
+
 SESSION_MINUTES = 390
 
 

@@ -2,7 +2,27 @@
 
 Nathan's call (2026-10-07): use Yahoo Finance for now.
 
-## How it's wired
+## 15-second mode (default)
+
+Every 15 seconds the Trader takes one **batched quote snapshot** of all 101
+S&P 100 stocks (3 requests to `/v7/finance/quote`, which also returns bid,
+ask and the day's volume). Each snapshot updates the stock's current, still
+forming 1-minute bar, so RSI, relative volume, stops and trailing stops are
+re-checked four times a minute on the live price. Chart requests are only
+used to load each stock's earlier bars once and to re-sync the 10 watched
+stocks once a minute. Total: roughly 25 to 50 requests a minute.
+
+The quote endpoint needs a cookie and "crumb" handshake (the same one the
+yfinance library does), done with the standard library. If Yahoo refuses it,
+the feed falls back to the per-stock rotation below for 5 minutes, then
+tries again.
+
+What this changes in the strategy: RSI is now computed with the current
+minute's live price as the last value, so a signal can appear mid-minute
+(and can disappear again before the minute closes). Set
+`evaluate_forming_bar: false` to only act on completed minutes.
+
+## How it's wired (fallback rotation)
 
 `agents/trader/yahoo_feed.py` calls Yahoo's public chart endpoint with the
 Python standard library. **No new dependency** (not even `yfinance`).

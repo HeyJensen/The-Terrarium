@@ -323,6 +323,31 @@ class EngineReplay(unittest.TestCase):
             self.assertGreater(s["pnl_pct"], 0.9)
             self.assertGreaterEqual(s["best_pct"], 2.0)
 
+    def test_stop_checked_inside_the_minute_on_live_price(self):
+        closes = fixtures.selloff_then(100, 20, 0.1, [98.1] * 30)
+        fixtures.write_symbol(self.data, "AAPL", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)})
+
+        class Forming(ReplayFeed):  # a live price ~1.1% under the entry, 20 s into 10:30
+            def forming_bar(self, symbol, now):
+                at = datetime(2026, 10, 5, 10, 30, tzinfo=ET)
+                if now == at + timedelta(seconds=20):
+                    return fixtures.Bar(at, 97.0, 97.0, 97.0, 97.0, 10)
+                return None
+
+        feed = Forming(self.data)
+        decisions = DecisionLog("trader", log_dir=self.root / "logs")
+        engine = TraderEngine({**BASE_CFG}, SimBroker(1000, "cash", slippage_bps=0), feed, feed.symbols(),
+                              self.root / "state", decisions, self.logger, Notifier({}, self.logger))
+        for now in feed.timeline():
+            if now > datetime(2026, 10, 5, 10, 31, tzinfo=ET):
+                break
+            engine.step(now)
+            if now == datetime(2026, 10, 5, 10, 30, tzinfo=ET):
+                engine.step(now + timedelta(seconds=20))
+        exit_ = [e for e in decisions.read() if e["action"] == "exit"][0]
+        self.assertEqual(exit_["reasoning"], "stop_loss")
+        self.assertEqual(exit_["ts"], "2026-10-05T10:30:20-04:00")
+
     def test_overnight_gap_trips_kill_switch_and_flattens(self):
         day1 = fixtures.selloff_then(100, 20, 0.1, [98.1])  # enters long ~98.1, holds flat
         day2 = [94.0] * 10                                  # gaps down ~4% at the open

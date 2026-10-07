@@ -92,6 +92,7 @@ class TraderEngine:
         self.last_task = ""
         self._last_checked_bar: str | None = None
         self._last_top: list[str] = []
+        self._last_scan_logged = ""
 
     # ---- persistence -------------------------------------------------
     def _load_position(self) -> Position | None:
@@ -112,10 +113,22 @@ class TraderEngine:
             return "cash"
         return self.limits["mode"]
 
+    def _forming(self, symbol: str, now: datetime):
+        """The still-forming 1-minute bar (live price), when the feed has one and the config uses it."""
+        if not self.cfg.get("evaluate_forming_bar", True):
+            return None
+        fn = getattr(self.feed, "forming_bar", None)
+        return fn(symbol, now) if fn else None
+
+    def _series(self, symbol: str, now: datetime):
+        bars = self.feed.minute_bars(symbol, now)
+        f = self._forming(symbol, now)
+        return bars + [f] if f else bars
+
     def _marks(self, now: datetime) -> dict[str, float]:
         if not self.position:
             return {}
-        bars = self.feed.minute_bars(self.position.symbol, now)
+        bars = self._series(self.position.symbol, now)
         return {self.position.symbol: bars[-1].close} if bars else {self.position.symbol: self.position.entry_price}
 
     def _report(self, status: str, task: str, equity: float | None = None) -> None:
@@ -164,7 +177,7 @@ class TraderEngine:
                                   equity=round(acct.equity, 2), start_equity=self.kill.state.start_equity)
             self.notifier.trade_alert(f"⛔ KILL SWITCH {self.kill.state.kill_reason}. No more trading today.")
             if self.position and self.cfg.get("kill_switch_flattens_position", True):
-                bars = self.feed.minute_bars(self.position.symbol, now)
+                bars = self._series(self.position.symbol, now)
                 self._exit(now, "kill_switch", bars[-1].close if bars else self.position.entry_price)
             self._report("halted", "kill switch tripped", acct.equity)
             return
@@ -201,18 +214,35 @@ class TraderEngine:
             p.best_price = max(p.best_price, bar.high) if p.side == LONG else min(p.best_price, bar.low)
             new_stop = round(strategy.ratchet_stop(p.side, p.entry_price, p.best_price, p.stop, p.trigger,
                                                    self.after_trigger, float(self.cfg.get("trail_pct", 1.0))), 4)
-            if new_stop != p.stop:
-                self.decisions.record("stop_moved", f"price reached the +{self.cfg.get('profit_trigger_pct', 2.0):g}% "
-                                      f"trigger; stop {self.after_trigger}", at=now, symbol=p.symbol, side=p.side,
-                                      old_stop=p.stop, new_stop=new_stop, best_price=p.best_price,
-                                      entry_price=p.entry_price)
-                p.stop = new_stop
+            self._move_stop(now, new_stop)
+        # Live price inside the current minute (15-second snapshots): check it as a single price,
+        # without marking the bar as checked, since it keeps changing until the minute closes.
+        f = self._forming(p.symbol, now)
+        if f and f.ts >= entry_ts.replace(second=0, microsecond=0):
+            target = p.trigger if self.after_trigger == "take_profit" else None
+            hit = strategy.bar_exit(p.side, f.close, f.close, f.close, p.stop, target)
+            if hit:
+                self._exit(now, hit[0].replace("_gap", ""), f.close)
+                return
+            p.best_price = max(p.best_price, f.close) if p.side == LONG else min(p.best_price, f.close)
+            self._move_stop(now, round(strategy.ratchet_stop(p.side, p.entry_price, p.best_price, p.stop, p.trigger,
+                                                             self.after_trigger, float(self.cfg.get("trail_pct", 1.0))), 4))
+            bars = bars + [f]
         held = trading_days_between(date.fromisoformat(p.entry_day), today)
         if held >= int(self.cfg.get("max_hold_days", 5)) and bars:
             self._exit(now, f"max_hold_days ({held} >= {self.cfg.get('max_hold_days', 5)})", bars[-1].close)
             return
         last = bars[-1].close if bars else p.entry_price
         self._report("in_position", f"{p.side.upper()} {p.symbol} {p.qty:g} @ {p.entry_price:.2f}, last {last:.2f}")
+
+    def _move_stop(self, now: datetime, new_stop: float) -> None:
+        p = self.position
+        if new_stop != p.stop:
+            self.decisions.record("stop_moved", f"price reached the +{self.cfg.get('profit_trigger_pct', 2.0):g}% "
+                                  f"trigger; stop {self.after_trigger}", at=now, symbol=p.symbol, side=p.side,
+                                  old_stop=p.stop, new_stop=new_stop, best_price=p.best_price,
+                                  entry_price=p.entry_price)
+            p.stop = new_stop
 
     def _exit(self, now: datetime, reason: str, ref_price: float) -> None:
         p = self.position
@@ -245,12 +275,14 @@ class TraderEngine:
         cfg = self.cfg
         lookback = int(cfg.get("relative_volume_lookback_days", 20))
         rel_vols, bars_by_symbol = {}, {}
+        today_volume = getattr(self.feed, "today_volume", None)
         for sym in self.universe:
-            bars = self.feed.minute_bars(sym, now)
+            bars = self._series(sym, now)
             prior = self.feed.prior_daily_volumes(sym, today, lookback)
             if not bars or len(prior) < lookback:
                 continue
-            rv = relative_volume(sum(b.volume for b in bars), prior)
+            vol = today_volume(sym, now) if today_volume else None
+            rv = relative_volume(vol if vol is not None else sum(b.volume for b in bars), prior)
             if rv is not None:
                 rel_vols[sym], bars_by_symbol[sym] = rv, bars
 
@@ -269,7 +301,7 @@ class TraderEngine:
             signal = strategy.entry_signal(value, short_at, long_at)
             closes = self.feed.prior_daily_closes(sym, today, trend_days)
             fast, slow = ema(closes, fast_n), ema(closes, slow_n)
-            age_s = round((now - (bars[-1].ts + timedelta(minutes=1))).total_seconds())
+            age_s = max(0, round((now - (bars[-1].ts + timedelta(minutes=1))).total_seconds()))
             row = {"symbol": sym, "price": bars[-1].close, "rel_vol": round(rv, 3),
                    "rsi": None if value is None else round(value, 2), "signal": signal,
                    "ema_fast": None if fast is None else round(fast, 4),
@@ -303,8 +335,11 @@ class TraderEngine:
         self.last_scan = {"ts": now.isoformat(), "symbols_with_data": len(rel_vols),
                           "universe": len(self.universe), "mode": mode, "rows": rows}
         n_sig = sum(1 for r in rows if r["signal"])
-        self.decisions.record("scan", f"{len(rel_vols)} symbols with data; top {len(top)} by relative volume; "
-                              f"{n_sig} RSI signal(s)", at=now, top=rows)
+        minute = to_et(now).strftime("%H:%M")
+        if n_sig or minute != self._last_scan_logged:  # once a minute, plus any step with a signal
+            self._last_scan_logged = minute
+            self.decisions.record("scan", f"{len(rel_vols)} symbols with data; top {len(top)} by relative volume; "
+                                  f"{n_sig} RSI signal(s)", at=now, top=rows)
         self._emit_new_signals(now, rows)
         return rows
 

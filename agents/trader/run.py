@@ -24,7 +24,7 @@ from shared.risk import effective_limits  # noqa: E402
 
 from agents.trader.broker import SimBroker  # noqa: E402
 from agents.trader.data_feed import ReplayFeed  # noqa: E402
-from agents.trader.yahoo_feed import YahooFeed  # noqa: E402
+from agents.trader.yahoo_feed import YahooFeed, YahooSession  # noqa: E402
 from agents.trader.console import render as render_console  # noqa: E402
 from agents.trader.engine import TraderEngine  # noqa: E402
 
@@ -108,8 +108,11 @@ def task_replay(settings, data_dir: Path, state_dir: Path, report: bool) -> int:
 
 def make_yahoo_feed(settings, logger) -> YahooFeed:
     cfg = settings["trader"]
+    session = YahooSession()
     return YahooFeed(load_universe(cfg), ROOT / "state" / "yahoo-cache", logger,
-                     max_requests_per_minute=int(cfg.get("yahoo_max_requests_per_minute", 50)))
+                     max_requests_per_minute=int(cfg.get("yahoo_max_requests_per_minute", 50)),
+                     get_json=session.get_json, quotes_fn=session.quotes,
+                     steps_per_minute=max(1, 60 // int(cfg.get("loop_interval_seconds", 15))))
 
 
 def task_prefetch(settings) -> int:
@@ -142,6 +145,7 @@ def task_trade(settings, report: bool, console: bool = True) -> int:
     broker = SimBroker.load_or_new(sim_path, cfg["account_size_usd"], cfg["mode"], cfg.get("sim_slippage_bps", 5))
     feed = make_yahoo_feed(settings, logger)
     broker.price_source = latest_bar_range(feed)
+    broker.quote_source = feed.bid_ask
     engine = build_engine(settings, broker, feed, load_universe(cfg), DEFAULT_STATE, logger, report, sleep=time.sleep)
     logger.info("trader running in DRY RUN on Yahoo Finance data; no orders reach any broker. Ctrl+C to stop.")
     interval = int(cfg.get("loop_interval_seconds", 60))
@@ -152,7 +156,7 @@ def task_trade(settings, report: bool, console: bool = True) -> int:
             broker.save(sim_path)
             if console:
                 print("\033[2J\033[H" + render_console(engine, now, cfg["order_routing"]), flush=True)
-            # Wake a few seconds after each minute boundary so the last bar has closed.
+            # Wake a few seconds after each interval boundary (default every 15 s).
             time.sleep(interval - (time.time() % interval) + 3)
     except KeyboardInterrupt:
         broker.save(sim_path)
