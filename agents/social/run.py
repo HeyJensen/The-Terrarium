@@ -4,8 +4,13 @@
   python agents/social/run.py --task check     show config and the draft-only lock
   python agents/social/run.py --task scan      trend files in state/inbox/social/ -> the trends board
   python agents/social/run.py --task promote   approved listings and blog posts -> draft social posts for approval
+  python agents/social/run.py --task channels  check BUFFER_API_KEY and list the channels Buffer has connected
+  python agents/social/run.py --task publish   dry run: show which approved posts would go to Buffer
+  python agents/social/run.py --task publish --live
+                                               queue them in Buffer. Needs publishing_mode "buffer" in
+                                               config/settings.json and BUFFER_API_KEY in the environment.
 
-Nothing is posted anywhere. Drafts wait in the approval queue.
+Only approved posts with no [EDIT] placeholders left are ever sent.
 """
 import argparse
 import json
@@ -15,13 +20,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from shared.config import ROOT  # noqa: E402
+from shared.config import ROOT, env  # noqa: E402
 from shared.logger import DecisionLog, get_logger  # noqa: E402
 
 from agents.common.approvals import ApprovalQueue  # noqa: E402
 from agents.common.board import Board  # noqa: E402
 from agents.common.bot import load_config, num, publishing_problem, read_inbox, report  # noqa: E402
 from agents.common.brain import get_brain  # noqa: E402
+from agents.social.buffer import BufferClient, publish  # noqa: E402
 
 AGENT = "social"
 STATE = ROOT / "state" / AGENT
@@ -29,6 +35,7 @@ STATE = ROOT / "state" / AGENT
 # Hard text limits per platform, so a draft is never rejected for length.
 PLATFORM_LIMITS = {"pinterest": 500, "instagram": 2200, "x": 280, "facebook": 2000, "tiktok": 2200}
 PROMOTABLE = ("etsy_listing", "blog_post")
+PUBLISHING_MODES = ("draft_only", "buffer")
 
 
 def trend_score(row: dict) -> float:
@@ -86,13 +93,14 @@ def promote(cfg, queue: ApprovalQueue, decisions: DecisionLog, brain, state_dir:
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Terrarium social agent")
-    ap.add_argument("--task", choices=["check", "scan", "promote"])
+    ap.add_argument("--task", choices=["check", "scan", "promote", "channels", "publish"])
+    ap.add_argument("--live", action="store_true", help="with --task publish: really queue posts in Buffer")
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--report", action="store_true", help="post status to the dashboard API")
     args = ap.parse_args(argv)
     cfg = load_config(AGENT)
     logger = get_logger(AGENT)
-    problem = publishing_problem(cfg)
+    problem = publishing_problem(cfg, PUBLISHING_MODES)
     if args.status:
         print(json.dumps({"name": AGENT, "publishing_mode": cfg["publishing_mode"], "trends_on_board": len(Board().read("trends")),
                           "drafts_pending": len(ApprovalQueue().list(status="pending", kind="social_post"))}, indent=2))
@@ -115,6 +123,28 @@ def main(argv=None) -> int:
         logger.info(f"{len(drafts)} social posts drafted for approval")
         if args.report:
             report(AGENT, logger, "idle", f"drafted {len(drafts)} posts", len(drafts))
+        return 0
+    if args.task == "channels":
+        if not env("BUFFER_API_KEY"):
+            logger.error("BUFFER_API_KEY is not set (config/.env)")
+            return 2
+        for c in BufferClient(env("BUFFER_API_KEY")).channels():
+            print(f"{c['service']:<12} {c['name']}")
+        return 0
+    if args.task == "publish":
+        if args.live and cfg["publishing_mode"] != "buffer":
+            logger.error('refusing to publish: set "social": {"publishing_mode": "buffer"} in config/settings.json first')
+            return 2
+        if args.live and not env("BUFFER_API_KEY"):
+            logger.error("refusing to publish: BUFFER_API_KEY is not set (config/.env)")
+            return 2
+        client = BufferClient(env("BUFFER_API_KEY")) if args.live else None
+        results = publish(cfg, ApprovalQueue(), decisions, client, STATE, dry_run=not args.live)
+        for r in results:
+            print(f"{r['id']:<26} {r['platform']:<10} {r['outcome']}")
+        queued = sum(r["outcome"].startswith("queued") for r in results)
+        if args.report:
+            report(AGENT, logger, "idle", f"queued {queued} posts in Buffer" if args.live else "publish dry run", queued)
         return 0
     ap.print_help()
     return 1

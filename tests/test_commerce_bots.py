@@ -13,6 +13,7 @@ from agents.common.board import Board
 from agents.common.brain import ClaudeBrain, TemplateBrain, get_brain
 from agents.content import run as content
 from agents.etsy import run as etsy
+from agents.social import buffer
 from agents.social import run as social
 from agents.studio import run as studio
 
@@ -128,6 +129,7 @@ class Pipeline(unittest.TestCase):
         items = studio.draft(self.cfg["studio"], self.board, self.queue, self.log("studio"), self.brain)
         self.queue.decide(items[0]["id"], "approved")
         self.queue.decide(items[1]["id"], "rejected")
+        self.cfg["social"]["platforms"] = ["facebook", "x"]
         drafts = social.promote(self.cfg["social"], self.queue, self.log("social"), self.brain, state_dir=self.tmp / "s")
         self.assertEqual(len(drafts), len(self.cfg["social"]["platforms"]))
         self.assertTrue(all(d["draft"]["promotes"] == items[0]["id"] for d in drafts))
@@ -162,6 +164,91 @@ class Pipeline(unittest.TestCase):
             self.assertIn(agent, names)
             for f in ("agent.json", "prompt.md", "run.py"):
                 self.assertTrue((root / "agents" / agent / f).exists(), f"{agent}/{f}")
+
+
+class FakeBuffer:
+    def __init__(self):
+        self.sent = []
+
+    def channels(self):
+        return [{"id": "ch-fb", "name": "Terrarium", "service": "facebook"}]
+
+    def queue_post(self, channel_id, text):
+        self.sent.append((channel_id, text))
+        return {"id": f"p{len(self.sent)}", "dueAt": "2026-10-08T15:00:00Z"}
+
+
+class Publishing(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.queue = ApprovalQueue(self.tmp / "approvals")
+        self.cfg = bot.load_config("social", settings={})
+        self.log = DecisionLog("social", log_dir=self.tmp / "logs")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp)
+
+    def post(self, platform="facebook", text="New pickleball tee is up!", link="https://etsy.com/listing/1", approve=True):
+        item = self.queue.submit("social", "social_post", "t", {"platform": platform, "text": text, "link": link})
+        if approve:
+            self.queue.decide(item["id"], "approved")
+        return item
+
+    def test_defaults_are_facebook_only_and_draft_only(self):
+        self.assertEqual(self.cfg["platforms"], ["facebook"])
+        self.assertEqual(self.cfg["publishing_mode"], "draft_only")
+        self.assertIsNone(bot.publishing_problem({**self.cfg, "publishing_mode": "buffer"}, social.PUBLISHING_MODES))
+        self.assertIsNotNone(bot.publishing_problem({**self.cfg, "publishing_mode": "buffer"}))  # other bots
+
+    def test_only_approved_finished_posts_go_out_once(self):
+        ok = self.post()
+        self.post(approve=False)
+        self.post(text="New in the shop: X [EDIT: platform voice]")
+        self.post(platform="x")
+        fake = FakeBuffer()
+        res = buffer.publish(self.cfg, self.queue, self.log, fake, self.tmp, dry_run=False)
+        self.assertEqual(fake.sent, [("ch-fb", "New pickleball tee is up!\n\nhttps://etsy.com/listing/1")])
+        outcomes = {r["id"]: r["outcome"] for r in res}
+        self.assertTrue(outcomes[ok["id"]].startswith("queued"))
+        self.assertEqual(len(res), 3)  # the unapproved one is never considered
+        self.assertEqual(buffer.publish(self.cfg, self.queue, self.log, fake, self.tmp, dry_run=False), [r for r in res if not r["outcome"].startswith("queued")])
+        self.assertEqual(len(fake.sent), 1)
+
+    def test_dry_run_sends_nothing_and_daily_limit_holds(self):
+        for _ in range(3):
+            self.post()
+        res = buffer.publish(self.cfg, self.queue, self.log, None, self.tmp, dry_run=True)
+        self.assertEqual([r["outcome"].split(":")[0] for r in res], ["would queue in Buffer (dry run)"] * 2 + ["held"])
+        self.assertFalse((self.tmp / "published.json").exists())
+
+    def test_approve_can_fill_in_text_and_link(self):
+        item = self.post(text="[EDIT: write it]", link="[EDIT: url]", approve=False)
+        self.queue.decide(item["id"], "approved", edits={"text": "Fresh drop", "link": "https://x.y"})
+        self.assertEqual(buffer.post_text(self.queue.get(item["id"])["draft"]), "Fresh drop\n\nhttps://x.y")
+
+    def test_graphql_strings_are_escaped(self):
+        captured = {}
+
+        class C(buffer.BufferClient):
+            def _gql(self, query, variables=None):
+                captured["q"] = query
+                return {"createPost": {"post": {"id": "1", "dueAt": None}}}
+
+        C("k").queue_post("ch", 'Say "hi"\nnew line 🎾')
+        self.assertIn('text: "Say \\"hi\\"\\nnew line 🎾"', captured["q"])
+
+    def test_studio_export_writes_sheet_once(self):
+        item = self.queue.submit("studio", "etsy_listing", "Funny Pickleball T-Shirt", {
+            "product_type": "tshirt", "design_prompt": "pickleball type design",
+            "listing": {"title": "Funny Pickleball T-Shirt", "tags": ["pickleball"], "price_usd": 24.0,
+                        "description": "Fun tee"}})
+        self.assertIsNone(studio.export(self.queue, self.log, self.tmp / "studio"))
+        self.queue.decide(item["id"], "approved")
+        path = studio.export(self.queue, self.log, self.tmp / "studio")
+        text = path.read_text()
+        self.assertIn("Printify", text)
+        self.assertIn("$24.00", text)
+        self.assertIsNone(studio.export(self.queue, self.log, self.tmp / "studio"))
 
 
 if __name__ == "__main__":

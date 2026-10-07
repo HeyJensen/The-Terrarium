@@ -7,7 +7,8 @@ There is no publisher yet; when one is added it may only read approved items.
 
   python -m agents.common.approvals list [--status pending] [--kind blog_post]
   python -m agents.common.approvals show <id>
-  python -m agents.common.approvals approve <id> [--note "..."]
+  python -m agents.common.approvals approve <id> [--note "..."] [--text "..."] [--link URL]
+                                       (--text / --link replace a social post's placeholders)
   python -m agents.common.approvals reject <id> [--note "..."]
 """
 import argparse
@@ -65,10 +66,12 @@ class ApprovalQueue:
                  and (kind is None or i["kind"] == kind) and (agent is None or i["agent"] == agent)]
         return sorted(items, key=lambda i: i["created_at"])
 
-    def decide(self, item_id: str, status: str, note: str | None = None) -> dict:
+    def decide(self, item_id: str, status: str, note: str | None = None, edits: dict | None = None) -> dict:
+        """edits replace fields in the draft (e.g. a social post's text and link) as part of the decision."""
         if status not in ("approved", "rejected"):
             raise ValueError("status must be approved or rejected")
         item = self.get(item_id)
+        item["draft"].update(edits or {})
         item.update(status=status, decided_at=_now(), note=note)
         self._write(item)
         return item
@@ -88,6 +91,8 @@ def main(argv=None) -> int:
         p = sub.add_parser(name)
         p.add_argument("id")
         p.add_argument("--note")
+        p.add_argument("--text")
+        p.add_argument("--link")
     args = ap.parse_args(argv)
     q = ApprovalQueue()
     if args.cmd == "list":
@@ -98,7 +103,8 @@ def main(argv=None) -> int:
     if args.cmd == "show":
         print(json.dumps(q.get(args.id), indent=2))
         return 0
-    item = q.decide(args.id, "approved" if args.cmd == "approve" else "rejected", args.note)
+    edits = {k: v for k, v in (("text", args.text), ("link", args.link)) if v is not None}
+    item = q.decide(args.id, "approved" if args.cmd == "approve" else "rejected", args.note, edits)
     print(f"{item['id']} -> {item['status']}")
     return 0
 

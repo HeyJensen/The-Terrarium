@@ -3,6 +3,8 @@
   python agents/studio/run.py --status
   python agents/studio/run.py --task check
   python agents/studio/run.py --task draft    niches on the board -> t-shirt and printable listing drafts
+  python agents/studio/run.py --task export   approved listings -> state/studio/etsy_sheets/<date>.md to copy into
+                                              Printify (t-shirts) or Etsy (printables) by hand
 
 Rules it follows (Etsy's creativity standards, Aug 2026):
 - Designs are original. It works from a niche's keywords, never from another
@@ -22,6 +24,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from datetime import datetime, timezone  # noqa: E402
+
 from shared.config import ROOT  # noqa: E402
 from shared.logger import DecisionLog, get_logger  # noqa: E402
 
@@ -31,6 +35,7 @@ from agents.common.bot import ip_flags, load_config, publishing_problem, report 
 from agents.common.brain import get_brain  # noqa: E402
 
 AGENT = "studio"
+STATE = ROOT / "state" / AGENT
 
 # Etsy listing limits.
 TITLE_MAX, TAGS_MAX, TAG_LEN_MAX = 140, 13, 20
@@ -152,9 +157,46 @@ def draft(cfg, board: Board, queue: ApprovalQueue, decisions: DecisionLog, brain
     return submitted
 
 
+def listing_sheet(item: dict) -> str:
+    d, lst = item["draft"], item["draft"]["listing"]
+    where = ("Printify: create a t-shirt with your design, paste these fields, then Publish to Etsy"
+             if d["product_type"] == "tshirt" else "Etsy: Add a listing > Digital, upload the PDF, paste these fields")
+    lines = [f"## {lst['title']}", "", f"*{item['id']}* · {where}", ""]
+    if d.get("design_prompt"):
+        lines += ["**Design prompt** (for Canva or any image tool):", "", f"> {d['design_prompt']}", ""]
+    if d.get("document"):
+        lines += ["**Pages:** " + ", ".join(d["document"]["pages"]), ""]
+    lines += ["**Title**", "", lst["title"], "", "**Tags** (13 max)", "", ", ".join(lst["tags"]), "",
+              "**Price**", "", f"${lst['price_usd']:.2f}", "", "**Description**", "", lst["description"], ""]
+    if item["flags"]:
+        lines += ["**Flags:** " + "; ".join(item["flags"]), ""]
+    return "\n".join(lines)
+
+
+def export(queue: ApprovalQueue, decisions: DecisionLog, state_dir: Path = STATE, now: datetime | None = None) -> Path | None:
+    """One Markdown sheet of every approved listing not exported before. Etsy charges $0.20 per listing,
+    so nothing is uploaded automatically: Nathan pastes each one in, which is also the final check."""
+    now = now or datetime.now(timezone.utc)
+    state_dir.mkdir(parents=True, exist_ok=True)
+    done_path = state_dir / "exported.json"
+    done = set(json.loads(done_path.read_text())) if done_path.exists() else set()
+    items = [i for i in queue.list(status="approved", kind="etsy_listing") if i["id"] not in done]
+    if not items:
+        return None
+    out_dir = state_dir / "etsy_sheets"
+    out_dir.mkdir(exist_ok=True)
+    path = out_dir / f"{now:%Y-%m-%d-%H%M}.md"
+    path.write_text(f"# Etsy listings to add ({len(items)})\n\nEach listing costs $0.20 on Etsy.\n\n"
+                    + "\n---\n\n".join(listing_sheet(i) for i in items))
+    for i in items:
+        decisions.record("export_listing", "approved listing written to sheet", approval_id=i["id"], sheet=str(path))
+    done_path.write_text(json.dumps(sorted(done | {i["id"] for i in items})))
+    return path
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Terrarium studio agent")
-    ap.add_argument("--task", choices=["check", "draft"])
+    ap.add_argument("--task", choices=["check", "draft", "export"])
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--report", action="store_true", help="post status to the dashboard API")
     args = ap.parse_args(argv)
@@ -177,6 +219,10 @@ def main(argv=None) -> int:
         logger.info(f"{len(items)} product drafts waiting for approval")
         if args.report:
             report(AGENT, logger, "idle", f"drafted {len(items)} products", len(items))
+        return 0
+    if args.task == "export":
+        path = export(ApprovalQueue(), DecisionLog(AGENT))
+        print(path or "no newly approved listings")
         return 0
     ap.print_help()
     return 1

@@ -54,6 +54,42 @@ python -m agents.common.approvals approve <id>
 python agents/social/run.py --task promote    # promo posts for what you approved
 ```
 
+## Free start (Nathan's choice, 2026-10-07): Facebook Page + Etsy
+
+**Your setup, once:**
+1. Create a **Facebook Page** for the shop.
+2. Create a free **Buffer** account and connect the Page as a channel.
+3. In Buffer, create an **API key** and put it in `config/.env` as
+   `BUFFER_API_KEY=...`. Never paste it in chat.
+4. Open the **Etsy shop**. Not quite free: Etsy charges a one-time $15
+   identity check for new US sellers and $0.20 per listing (renewed every
+   4 months), plus fees when something sells.
+5. Free **Printify** account, connected to the Etsy shop (for t-shirts).
+6. Optional: free **eRank** account for keyword exports (the free plan is
+   limited but works for a start).
+
+**Then the loop:**
+
+```bash
+python agents/social/run.py --task channels            # checks the key, should list "facebook"
+python agents/etsy/run.py --task scan                  # after dropping a keyword export in state/inbox/etsy/
+python agents/studio/run.py --task draft
+python -m agents.common.approvals list                 # approve / reject
+python agents/studio/run.py --task export              # sheet to paste into Printify / Etsy
+python agents/social/run.py --task promote             # Facebook post drafts for approved items
+python -m agents.common.approvals approve <id> --text "Your post" --link https://www.etsy.com/listing/...
+python agents/social/run.py --task publish             # dry run: shows what would go out
+python agents/social/run.py --task publish --live      # queues in Buffer
+```
+
+`--live` also needs `"social": {"publishing_mode": "buffer"}` in
+`config/settings.json`. A post with any `[EDIT` or `[[` placeholder left is
+never sent, and at most `daily_post_limit` (2) go out per day.
+
+Still manual on the free path: artwork (make it in Canva's free tier from the
+design prompt), the listing copy (the template brain leaves `[EDIT]` gaps), and
+pasting listings into Printify or Etsy.
+
 ## Things that shaped the design
 
 - **The Etsy bot can't scan Etsy.** Etsy's API terms ban scraping the site
@@ -85,12 +121,12 @@ as an estimate.
 | 1 | **Etsy research tool** (eRank recommended) | Etsy research | eRank $5.99–29.99/mo; EverBee $29.99–99/mo | You export keyword lists; the bot never logs in. |
 | 2 | **Anthropic API key + `anthropic` package** | Real writing in studio, content, social | Sonnet 5.5: $2 / $10 per million tokens in/out. Estimate: about $0.02–0.05 per blog draft | Without it the copy stays template placeholders. |
 | 3 | **Image generation** for t-shirt art | Studio | Paid image API, estimate a few cents per image; or you design in Canva from the bot's prompts | No image tool is chosen yet. |
-| 4 | **Etsy shop + Etsy API app** | Listing approved drafts | $0.20 per listing, 6.5% transaction fee, about 3% + $0.25 processing | API app needs Etsy's approval; only used for our own shop. |
+| 4 | **Etsy shop** (Etsy API app later) | Listing approved drafts | $15 one-time identity check (new US sellers), $0.20 per listing, 6.5% transaction fee, about 3% + $0.25 processing | Free start: listings are pasted in by hand from the studio's export sheet. |
 | 5 | **Printify or Printful** | Printing and shipping shirts | Free plans; you pay base cost per shirt when it sells | Printify Premium ($29/mo) only lowers base costs at volume. |
 | 6 | **Blog site + domain** | Content | Estimate: domain ~$10–20/yr; hosting free (static) to ~$15/mo (WordPress) | Needs a publisher module once chosen. |
 | 7 | **Google AdSense** | Blog revenue | Free | Approval needs a site with real, original posts first. |
 | 8 | **Amazon Associates** | Blog revenue | Free | Account closes without 3 qualifying sales in its first 180 days, so don't apply until the blog has traffic. |
-| 9 | **Social accounts and APIs** | Social posting | Pinterest, Instagram/Facebook, TikTok APIs: free but each needs app review (TikTok posts stay private until audited). X: $0.015 per post, $0.20 with a link | Pinterest first: it drives Etsy and blog traffic best for the least setup. |
+| 9 | **Social accounts and APIs** | Social posting | **Chosen: Buffer free plan** (API included; paid is $5 per channel per month). Direct APIs: Pinterest, Instagram/Facebook, TikTok free but each needs app review; X $0.015 per post, $0.20 with a link | Facebook Page first (Nathan's call). Metricool's API needs its Advanced plan, from €43/mo. |
 | 10 | **Live trend sources** | Social scan | Google Trends (official API in limited access, or the unofficial `pytrends` package), Pinterest Trends, Reddit (commercial use needs approval) | Until then, trend files go in the inbox. |
 
 Skool has no public posting API, so the social bot can draft Skool posts

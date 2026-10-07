@@ -1,5 +1,17 @@
 # Changelog: the Terrarium build log
 
+## 2026-10-07: Facebook through Buffer, Etsy sheets (free tier)
+
+- The social bot can now post to a **Facebook Page through Buffer's free
+  plan**. It only sends posts you approved, with every placeholder filled in,
+  at most 2 a day, and it does a dry run unless you add `--live` and switch
+  `publishing_mode` to `buffer`.
+- Approving a social post can fill in its text and link in the same step.
+- The studio exports approved listings as a sheet to paste into Printify
+  (t-shirts) or Etsy (printables). Nothing uploads to Etsy automatically,
+  since every listing costs $0.20.
+- 19 commerce tests.
+
 ## 2026-10-07: Back to the S&P 100
 
 - The Trader scans the **S&P 100** again (101 stocks), matching the website's

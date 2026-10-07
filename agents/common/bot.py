@@ -15,8 +15,8 @@ from shared.dashboard_client import build_status, post_status
 INBOX_DIR = ROOT / "state" / "inbox"
 IP_BLOCKLIST = Path(__file__).with_name("ip_blocklist.json")
 
-# The only mode that exists. Publishing code is not written; adding a mode
-# here is a decision for Nathan, not for an agent.
+# draft_only is every bot's default. A bot may accept another mode only once
+# Nathan has approved that publisher (social: "buffer", approved 2026-10-07).
 PUBLISHING_MODES = ("draft_only",)
 
 
@@ -27,10 +27,10 @@ def load_config(agent: str, settings: dict | None = None) -> dict:
     return cfg
 
 
-def publishing_problem(cfg: dict) -> str | None:
+def publishing_problem(cfg: dict, allowed: tuple = PUBLISHING_MODES) -> str | None:
     mode = cfg.get("publishing_mode")
-    if mode not in PUBLISHING_MODES:
-        return f"publishing_mode {mode!r} is not allowed; only {list(PUBLISHING_MODES)} exists"
+    if mode not in allowed:
+        return f"publishing_mode {mode!r} is not allowed; only {list(allowed)} exists"
     return None
 
 

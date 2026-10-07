@@ -1,15 +1,16 @@
 {
   "name": "social",
   "type": "marketing",
-  "description": "Turns trend signals into ideas for the Etsy, studio and blog bots, and drafts promo posts for approved listings and blog posts. Draft-only: posts nothing.",
+  "description": "Turns trend signals into ideas for the Etsy, studio and blog bots, and drafts promo posts for approved listings and blog posts. Posts only items Nathan approved, through Buffer, and only when publishing_mode is buffer.",
   "version": "0.1.0",
   "entrypoint": "agents/social/run.py",
   "stream": "social",
   "config_schema": {
-    "publishing_mode": {"type": "string", "enum": ["draft_only"], "default": "draft_only"},
+    "publishing_mode": {"type": "string", "enum": ["draft_only", "buffer"], "default": "draft_only"},
     "brain": {"type": "string", "enum": ["template", "claude"], "default": "template"},
     "min_trend_score": {"type": "number", "default": 40},
     "dedupe_days": {"type": "integer", "default": 7},
-    "platforms": {"type": "array", "default": ["pinterest", "instagram", "tiktok", "facebook", "x"]}
+    "platforms": {"type": "array", "default": ["facebook"]},
+    "daily_post_limit": {"type": "integer", "maximum": 5, "default": 2}
   }
 }

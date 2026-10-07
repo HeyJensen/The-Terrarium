@@ -13,9 +13,14 @@ something is ready to sell.
    has approved, draft one post per platform (Pinterest, Instagram, TikTok,
    Facebook, X) within each platform's length limit, and put them in the
    approval queue.
+3. **Publish (`--task publish`):** queue approved Facebook posts in Buffer,
+   which posts them to the Page. Dry run unless `--live` and
+   `publishing_mode` is `buffer`.
 
 ## Hard rules
-- Never post, comment, DM, follow or like anything. Drafts only.
+- Post only through Buffer, only approved posts with no `[EDIT` or `[[`
+  placeholders left, at most `daily_post_limit` a day. Never comment, DM,
+  follow or like anything, and never log in to a social account.
 - Promote only items whose status is `approved`.
 - No claims we can't back up ("best seller", "#1", fake scarcity), no fake
   reviews, no engagement bait aimed at kids.
