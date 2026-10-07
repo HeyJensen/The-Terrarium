@@ -35,7 +35,7 @@ from shared.notifications import Notifier  # noqa: E402
 from agents.trader.broker import SimBroker  # noqa: E402
 from agents.trader.data_feed import ReplayFeed  # noqa: E402
 from agents.trader.engine import TraderEngine  # noqa: E402
-from agents.trader.yahoo_feed import YahooFeed  # noqa: E402
+from agents.trader.yahoo_feed import YahooFeed, YahooSession  # noqa: E402
 
 AGENT = "trader"
 SCAN_FIELDS = ("symbol", "rel_vol", "rsi", "price", "signal", "checks")
@@ -153,8 +153,12 @@ def main(argv=None) -> int:
         print(json.dumps({"signals": len(engine.signals.entries), "out": str(args.out)}))
         return 0
 
+    # Same feed as the Trader: batched quote snapshots for every stock each step, minute bars on rotation.
+    interval = int(cfg.get("loop_interval_seconds", 15))
+    session = YahooSession()
     feed = YahooFeed(universe, state_dir / "yahoo-cache", logger,
-                     max_requests_per_minute=int(cfg.get("yahoo_max_requests_per_minute", 50)))
+                     max_requests_per_minute=int(cfg.get("yahoo_max_requests_per_minute", 50)),
+                     get_json=session.get_json, quotes_fn=session.quotes, steps_per_minute=max(1, 60 // interval))
     ok, failed = feed.prefetch_daily(datetime.now(timezone.utc))  # cached per day; cheap after the first run
     logger.info(f"daily history ready for {ok} symbols, {failed} failed")
     snap.feed_health = {"source": "yahoo", "daily_history_ok": ok, "daily_history_failed": failed,
@@ -162,6 +166,7 @@ def main(argv=None) -> int:
     engine, broker, sim_path = build(settings, feed, universe, state_dir, snap, logger)
     started = time.time()
     seen_open = False
+    last_publish = 0.0
     et = to_et(datetime.now(timezone.utc))
     in_window = is_trading_day(et.date()) and (9, 0) <= (et.hour, et.minute) < (16, 30)
     if not in_window:  # outside market hours: refresh the snapshot once and stop
@@ -179,11 +184,12 @@ def main(argv=None) -> int:
         engine.step(now)
         broker.save(sim_path)
         snap.write(engine)
-        publish()
+        if time.time() - last_publish >= 55 or (seen_open and not open_now):
+            publish()  # the website re-reads about once a minute, so pushing every step would only add load
+            last_publish = time.time()
         if seen_open and not open_now:
             logger.info("market closed; final snapshot written")
             break
-        interval = int(cfg.get("loop_interval_seconds", 60))
         time.sleep(interval - (time.time() % interval) + 3)
     return 0
 
