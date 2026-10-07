@@ -74,7 +74,7 @@ def speak(text: str) -> bytes:
     key = os.environ.get("FISH_AUDIO_API_KEY")
     if not key:
         raise RuntimeError("FISH_AUDIO_API_KEY is not set")
-    body = {"text": text[:MAX_SPEAK_CHARS], "format": "mp3", "latency": "balanced"}
+    body = {"text": text[:MAX_SPEAK_CHARS], "format": "mp3", "latency": "normal"}
     if os.environ.get("FISH_AUDIO_VOICE_ID"):
         body["reference_id"] = os.environ["FISH_AUDIO_VOICE_ID"]
     headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}

@@ -1299,43 +1299,100 @@ scene = (() => {
     }
     if (!("speechSynthesis" in window)) return;
     try {
-      const spoken = text;
-      const u = new SpeechSynthesisUtterance(spokenText(spoken));
-      const vs = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
-      const pick = vs.find(v => /natural|neural|samantha|google us|aria|jenny/i.test(v.name)) || vs[0];
-      if (pick) u.voice = pick;
-      u.rate = 1.02;
-      speechSynthesis.speak(u);
+      const voice = bestVoice();
+      // One utterance per sentence gives natural pauses and avoids the long-utterance cutoff in Chrome.
+      for (const part of spokenText(text).match(/[^.!?]+[.!?]*/g) || []) {
+        const u = new SpeechSynthesisUtterance(part.trim());
+        if (voice) u.voice = voice;
+        u.rate = 0.97; u.pitch = 1.0;
+        speechSynthesis.speak(u);
+      }
     } catch (e) {}
+  }
+  // The most human-sounding voice the device offers: Edge's "Natural" voices, Apple's Premium or Enhanced ones, then Google's.
+  function bestVoice() {
+    const vs = speechSynthesis.getVoices().filter(v => /^en(-|_|$)/i.test(v.lang));
+    const rank = v => [/natural/i, /premium/i, /enhanced/i, /neural/i, /google us english/i, /\b(ava|zoe|evan|nathan|samantha|aria|jenny|guy)\b/i]
+      .findIndex(re => re.test(v.name));
+    const scored = vs.map(v => ({ v, r: rank(v) < 0 ? 99 : rank(v), us: /en-US/i.test(v.lang) ? 0 : 1 }));
+    scored.sort((a, b) => a.r - b.r || a.us - b.us);
+    return scored.length ? scored[0].v : null;
   }
 
   const dollars = n => (n < 0 ? "down " : "up ") + "$" + Math.abs(n).toFixed(2);
+  // Spoken company names, so the voice says "Nvidia" instead of spelling N V D A.
+  const NAMES = { AAPL: "Apple", ABBV: "AbbVie", ABT: "Abbott", ACN: "Accenture", ADBE: "Adobe", AMAT: "Applied Materials", AMD: "AMD", AMGN: "Amgen", AMT: "American Tower", AMZN: "Amazon", AVGO: "Broadcom", AXP: "American Express", BA: "Boeing", BAC: "Bank of America", BKNG: "Booking", BLK: "BlackRock", BMY: "Bristol Myers", BK: "BNY", "BRK.B": "Berkshire", C: "Citigroup", CAT: "Caterpillar", CL: "Colgate", CMCSA: "Comcast", COF: "Capital One", COP: "ConocoPhillips", COST: "Costco", CRM: "Salesforce", CSCO: "Cisco", CVS: "CVS", CVX: "Chevron", DE: "Deere", DHR: "Danaher", DIS: "Disney", DUK: "Duke Energy", EMR: "Emerson", FDX: "FedEx", GD: "General Dynamics", GE: "GE Aerospace", GEV: "GE Vernova", GILD: "Gilead", GM: "GM", GOOG: "Google", GOOGL: "Google", GS: "Goldman Sachs", HD: "Home Depot", HON: "Honeywell", IBM: "IBM", INTC: "Intel", INTU: "Intuit", ISRG: "Intuitive Surgical", JNJ: "Johnson and Johnson", JPM: "JPMorgan", KO: "Coca-Cola", LIN: "Linde", LLY: "Eli Lilly", LMT: "Lockheed Martin", LOW: "Lowe's", LRCX: "Lam Research", MA: "Mastercard", MCD: "McDonald's", MDLZ: "Mondelez", MDT: "Medtronic", META: "Meta", MMM: "3M", MO: "Altria", MRK: "Merck", MS: "Morgan Stanley", MSFT: "Microsoft", MU: "Micron", NEE: "NextEra", NFLX: "Netflix", NKE: "Nike", NOW: "ServiceNow", NVDA: "Nvidia", ORCL: "Oracle", PEP: "Pepsi", PFE: "Pfizer", PG: "Procter and Gamble", PLTR: "Palantir", PM: "Philip Morris", QCOM: "Qualcomm", RTX: "RTX", SBUX: "Starbucks", SCHW: "Schwab", SO: "Southern Company", SPG: "Simon Property", T: "AT&T", TMO: "Thermo Fisher", TMUS: "T-Mobile", TSLA: "Tesla", TXN: "Texas Instruments", UBER: "Uber", UNH: "UnitedHealth", UNP: "Union Pacific", UPS: "UPS", USB: "U.S. Bank", V: "Visa", VZ: "Verizon", WFC: "Wells Fargo", WMT: "Walmart", XOM: "Exxon" };
+  const nameOf = sym => NAMES[sym] || sym;
+  const NUM = ["no", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
+  const count = (n, word) => `${NUM[n] || n} ${word}${n === 1 ? "" : "s"}`;
+  const pct = n => `${Math.abs(n).toFixed(1).replace(/\.0$/, "")} percent`;
+  const BUY_RSI = 15, SHORT_RSI = 85;
+
+  // The stock nearest to tripping a buy or short, from the latest scan or the trader's own report.
+  function closest(d, a) {
+    const rows = (d.scan && d.scan.rows || []).filter(r => r.rsi != null);
+    if (rows.length) {
+      const best = rows.map(r => ({ sym: r.symbol, rsi: r.rsi, gap: Math.min(Math.abs(r.rsi - BUY_RSI), Math.abs(SHORT_RSI - r.rsi)) })).sort((x, y) => x.gap - y.gap)[0];
+      return best;
+    }
+    const m = /lowest RSI (\S+) ([\d.]+)/.exec(a.current_task || "");
+    return m ? { sym: m[1], rsi: Number(m[2]) } : null;
+  }
+  function nearMiss(c) {
+    if (!c) return "";
+    const side = c.rsi < 50 ? `it buys at ${BUY_RSI}` : `it shorts at ${SHORT_RSI}`;
+    return ` The closest call is ${nameOf(c.sym)}, with its RSI at ${Math.round(c.rsi)}, and ${side}.`;
+  }
   function describeAgent(a) {
-    const status = { watching: "watching the market", in_position: "holding a position", idle: "idle between trades", sleeping: "asleep", halted: "halted by its safety switch" }[a.status] || a.status;
-    return `The ${a.name} is ${status}. Its latest report: ${a.current_task || "nothing yet"}. It has done ${a.tasks_today} tasks today and is ${dollars(a.pnl || 0)}.`;
+    const d = state.data || {};
+    const open = (d.signals || []).find(s => s.agent === a.name && s.status === "open");
+    let line;
+    if (a.status === "sleeping") line = `The ${a.name} is resting while the market's closed.`;
+    else if (a.status === "halted") line = `The ${a.name} has stopped itself with its safety switch, so it needs a look.`;
+    else if (open) {
+      const did = open.side === "buy" ? "bought" : "shorted";
+      const move = open.pnl_pct ? `, and it's ${open.pnl_pct >= 0 ? "up" : "down"} ${pct(open.pnl_pct)} so far` : "";
+      line = `The ${a.name} is in a trade right now. It ${did} ${nameOf(open.symbol)} at $${Number(open.price).toFixed(2)}${move}.`;
+    } else if (/signal/.test(a.current_task || "") && !/\b0 signal/.test(a.current_task)) {
+      const m = /: (\S+) RSI/.exec(a.current_task);
+      line = `The ${a.name} just spotted a setup${m ? " on " + nameOf(m[1]) : ""}.`;
+    } else {
+      line = `The ${a.name} is awake and watching the market. Nothing has hit its buy or short line yet.` + nearMiss(a.name === "trader" ? closest(d, a) : null);
+    }
+    const money = !a.pnl ? " It hasn't made or lost anything yet today." : ` So far today it's ${dollars(a.pnl)}.`;
+    return line + (a.status === "sleeping" && !a.pnl ? "" : money);
   }
   function briefing() {
     const d = state.data;
-    if (!d) return "I don't have any data yet. Give the dashboard a moment to answer.";
+    if (!d) return "I don't have any data yet. Give me a moment to connect.";
     const hour = new Date().getHours();
     const hello = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-    const day = new Date().toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
+    const day = new Date().toLocaleDateString([], { weekday: "long" });
     const live = d.agents.filter(a => a.last_updated);
-    const dark = hives.filter(h => !h.core && !h.agent).map(h => h.name);
-    const total = d.agents.reduce((s, a) => s + (a.pnl || 0), 0);
-    const done = (d.outbox || []).filter(o => Date.parse(o.ts) >= Date.now() - 24 * 3600e3);
-    const parts = [`${hello}, ${TERRARIUM_CONFIG.ownerName}. Here's the Terrarium for ${day}.`];
-    if (state.source === "sample") parts.push("Remember, this is sample data, not real trading.");
-    parts.push(`${live.length} of ${hives.length - 1} hives are active, and the organism is ${dollars(total)} today.`);
+    const dark = hives.filter(h => !h.core && !h.agent).map(h => ({ etsy: "Etsy", gigs: "Fiverr" })[h.name] || h.name);
+    const parts = [`${hello}, ${TERRARIUM_CONFIG.ownerName}. Here's how the Terrarium is doing this ${day}.`];
+    if (state.source === "sample") parts.push("Quick reminder: this is practice data, not real trading.");
     for (const a of live) parts.push(describeAgent(a));
-    if (done.length) parts.push(`In the last day it finished ${done.length} piece${done.length > 1 ? "s" : ""} of work. Most recent: ${done[0].title}. ${done[0].detail}`);
     if (Array.isArray(d.signals) && d.signals.length) {
       const today = d.signals.filter(s => new Date(s.ts).toDateString() === new Date().toDateString());
-      const usd = today.reduce((t, s) => t + (s.pnl_pct || 0) * 10, 0);
-      if (today.length) parts.push(`The Terrarium sent ${today.length} signal${today.length > 1 ? "s" : ""} today. Taken at $1,000 each, they're ${dollars(usd)} together, with ${today.filter(s => s.status === "open").length} still open.`);
+      if (today.length) {
+        const usd = today.reduce((t, s) => t + (s.pnl_pct || 0) * 10, 0);
+        const open = today.filter(s => s.status === "open").length;
+        const closed = today.filter(s => s.status === "closed");
+        let line = `The Terrarium has called ${count(today.length, "trade")} today. If you'd put a thousand dollars into each, you'd be ${dollars(usd)} overall`;
+        line += open ? `, with ${NUM[open] || open} still open.` : ".";
+        parts.push(line);
+        if (closed.length) {
+          const best = closed.slice().sort((x, y) => y.pnl_pct - x.pnl_pct)[0];
+          if (best.pnl_pct > 0) parts.push(`The best one was a ${best.side === "buy" ? "buy" : "short"} on ${nameOf(best.symbol)} that closed up ${pct(best.pnl_pct)}.`);
+        }
+      } else if (live.some(a => a.status !== "sleeping")) parts.push("No trades have been called yet today.");
     }
-    parts.push(`The heart logged ${pulsesLastHour()} reports in the last hour.`);
-    if (dark.length) parts.push(`Still dark: ${dark.join(", ")}.`);
+    if (dark.length) {
+      const list = dark.length > 1 ? dark.slice(0, -1).join(", ") + " and " + dark[dark.length - 1] : dark[0];
+      parts.push(`The ${list} ${dark.length > 1 ? "hives are" : "hive is"} still asleep, so the trader is carrying things for now.`);
+    }
+    parts.push("That's the update. Ask me about any hive whenever you like.");
     return parts.join(" ");
   }
   function localAnswer(q) {
@@ -1357,7 +1414,7 @@ scene = (() => {
   async function ask(q) {
     q = q.trim(); if (!q) return;
     show(q, "You");
-    if (/brief|daily|summary|update|how('?s| is| are) (it|everything|the agents|the bots|things|the terrarium)/i.test(q)) { say(briefing()); markBriefed(); return; }
+    if (/brief|daily|summary|update|analysis|report|today|how('?s| is| are) (it|everything|the agents|the bots|things|the terrarium)/i.test(q)) { say(briefing()); markBriefed(); return; }
     const named = hives.find(x => q.toLowerCase().includes(x.name));
     if (named) select(named.name);
     if (!claudeSample) { say(localAnswer(q)); return; }
