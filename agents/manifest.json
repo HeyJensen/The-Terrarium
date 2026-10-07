@@ -7,6 +7,34 @@
       "type": "trading",
       "stream": "trading",
       "enabled": true
+    },
+    {
+      "name": "social",
+      "path": "agents/social",
+      "type": "marketing",
+      "stream": "social",
+      "enabled": true
+    },
+    {
+      "name": "etsy",
+      "path": "agents/etsy",
+      "type": "research",
+      "stream": "etsy",
+      "enabled": true
+    },
+    {
+      "name": "studio",
+      "path": "agents/studio",
+      "type": "product",
+      "stream": "etsy",
+      "enabled": true
+    },
+    {
+      "name": "content",
+      "path": "agents/content",
+      "type": "content",
+      "stream": "content",
+      "enabled": true
     }
   ]
 }

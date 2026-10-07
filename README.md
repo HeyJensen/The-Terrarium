@@ -31,6 +31,10 @@ python agents/trader/run.py --task trade      # minute loop, Ctrl+C to stop
 
 Market data comes from Yahoo Finance; see `docs/market-data-yahoo.md` for its limits.
 
+Phase 2 commerce bots (social, etsy, studio, content) run in draft-only mode;
+see `docs/phase2-commerce-bots.md` for how they connect and how to try them.
+Review their drafts with `python -m agents.common.approvals list`.
+
 ## Safety switches
 
 - `trader.order_routing` is `dry_run` by default. Live orders need it set to

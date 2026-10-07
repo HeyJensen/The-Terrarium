@@ -1,5 +1,19 @@
 # Changelog: the Terrarium build log
 
+## 2026-10-07: Phase 2 commerce bots, draft-only
+
+- Four new agents: **Social** (trends in, promo posts out), **Etsy research**
+  (scores niches from keyword exports), **Studio** (original t-shirt and
+  printable listing drafts), and **Content** (blog drafts with Amazon
+  affiliate and AdSense slots).
+- They hand work to each other through a shared board, and everything they
+  make waits in an **approval queue**. Nothing is listed, posted or published.
+- Built around the rules: no scraping Etsy, original designs only, AI and
+  production-partner disclosures on every listing, trademark names flagged,
+  affiliate disclosure first in every post.
+- Accounts, APIs and costs still to decide: `docs/phase2-commerce-bots.md`.
+- 13 new tests.
+
 ## 2026-10-07: Live market data (Yahoo Finance)
 
 - The Trader now reads real prices from Yahoo Finance: a year of daily bars

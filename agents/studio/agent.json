@@ -1,0 +1,18 @@
+{
+  "name": "studio",
+  "type": "product",
+  "description": "Turns researched niches into original print-on-demand t-shirt and printable (e-doc) listing drafts, with disclosures and trademark flags, for Nathan to approve.",
+  "version": "0.1.0",
+  "entrypoint": "agents/studio/run.py",
+  "stream": "etsy",
+  "config_schema": {
+    "publishing_mode": {"type": "string", "enum": ["draft_only"], "default": "draft_only"},
+    "brain": {"type": "string", "enum": ["template", "claude"], "default": "template"},
+    "product_types": {"type": "array", "default": ["tshirt", "printable"]},
+    "design_angles": {"type": "array", "default": ["funny", "minimalist", "retro"]},
+    "designs_per_niche": {"type": "integer", "default": 2},
+    "printable_types": {"type": "array", "default": ["planner"]},
+    "production_partner": {"type": "string", "default": "[EDIT: Printify or Printful]"},
+    "price_floor_usd": {"type": "object", "default": {"tshirt": 22.0, "printable": 4.0}}
+  }
+}

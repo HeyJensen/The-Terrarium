@@ -1,0 +1,16 @@
+{
+  "name": "etsy",
+  "type": "research",
+  "description": "Scores Etsy niches from keyword-research exports plus the social bot's trends, and hands the best ones to the studio and blog bots. Never scrapes Etsy.",
+  "version": "0.1.0",
+  "entrypoint": "agents/etsy/run.py",
+  "stream": "etsy",
+  "config_schema": {
+    "publishing_mode": {"type": "string", "enum": ["draft_only"], "default": "draft_only"},
+    "min_monthly_searches": {"type": "number", "default": 500},
+    "max_competition": {"type": "number", "default": 50000},
+    "min_avg_price": {"type": "number", "default": 5},
+    "trend_boost": {"type": "number", "default": 1.25},
+    "niches_per_scan": {"type": "integer", "default": 5}
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "content",
+  "type": "content",
+  "description": "Drafts blog posts from researched niches and trends, with Amazon affiliate and AdSense slots and the required disclosure, for Nathan to edit and approve.",
+  "version": "0.1.0",
+  "entrypoint": "agents/content/run.py",
+  "stream": "content",
+  "config_schema": {
+    "publishing_mode": {"type": "string", "enum": ["draft_only"], "default": "draft_only"},
+    "brain": {"type": "string", "enum": ["template", "claude"], "default": "template"},
+    "posts_per_run": {"type": "integer", "default": 3},
+    "affiliate_slots": {"type": "integer", "default": 3},
+    "target_words": {"type": "integer", "default": 1500},
+    "title_pattern": {"type": "string", "default": "What to Buy and What to Skip"}
+  }
+}
