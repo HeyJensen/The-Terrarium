@@ -27,7 +27,7 @@
     "kill_switch_flattens_position": true,
     "allow_fractional_shares": false,
 
-    "universe_file": "config/universe_sp500.json",
+    "universe_file": "config/universe_sp100.json",
     "top_n_by_relative_volume": 10,
     "relative_volume_lookback_days": 20,
     "rsi_period": 14,

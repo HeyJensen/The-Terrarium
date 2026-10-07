@@ -21,7 +21,7 @@ Sources: [FINRA: Understanding the New Intraday Margin Requirements](https://www
 
 | Change | Was | Now | Note |
 |---|---|---|---|
-| Universe | S&P 100 | **S&P 500** (503 tickers) | Default keeps the relative-volume filter (top 10 names) since the new message didn't drop it. Set `top_n_by_relative_volume` higher to widen it. |
+| Universe | S&P 100 | ~~S&P 500~~ → back to **S&P 100** (Nathan, later the same day) | Keeps the relative-volume filter (top 10 names). `config/universe_sp500.json` is still there if wanted. |
 | Short trigger | RSI ≥ 80 | **RSI ≥ 85** | Long trigger stays RSI ≤ 15. |
 | Trend filter | none | **50 EMA vs 200 EMA on daily bars, 1 year** | Shorts only in a downtrend, longs only in an uptrend. In cash mode only the long side matters. |
 | Exit at +2% | sell (take profit) | **stop moves up instead** | Default `trail`: stop trails 1% behind the best price, so about +1% is locked when +2% is reached. Options: `breakeven`, `take_profit`. |
@@ -65,5 +65,5 @@ run until the trailing stop or the 5-day max hold.
   stop orders depend on what the MCP supports (unconfirmed).
 - **Market data comes from Yahoo Finance** (Nathan's call). It's free but
   unofficial and personal-use only; see market-data-yahoo.md. It refreshes
-  the top 10 names every minute and the rest of the S&P 500 in rotation. Robinhood's MCP doesn't
+  the top 10 names every minute and the rest of the S&P 100 in rotation. Robinhood's MCP doesn't
   document either.

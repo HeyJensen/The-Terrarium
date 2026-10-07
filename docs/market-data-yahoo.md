@@ -10,12 +10,12 @@ Python standard library. **No new dependency** (not even `yfinance`).
 | Need | Request | How often |
 |---|---|---|
 | A year of daily bars (20-day volume, 50/200 EMA) | `chart/SYM?interval=1d&range=1y` | once a day per symbol, cached on disk. Run `--task prefetch` before 9:30 ET. |
-| Today's 1-minute bars | `chart/SYM?interval=1m&range=1d` | every minute for the current top 10 + any open position; the other ~490 symbols in rotation |
+| Today's 1-minute bars | `chart/SYM?interval=1m&range=1d` | every minute for the current top 10 + any open position; the other ~90 in rotation |
 
 Budget: `yahoo_max_requests_per_minute` (default 50, about 3,000 an hour).
-At that rate the whole S&P 500 relative-volume ranking refreshes about
-every 11 minutes, and the top 10 names (the ones RSI is checked on) refresh
-every minute. In the first ~11 minutes after the open, not every symbol has
+At that rate the whole S&P 100 relative-volume ranking refreshes about
+every 2 minutes, and the top 10 names (the ones RSI is checked on) refresh
+every minute. In the first ~2 minutes after the open, not every symbol has
 data yet, so the ranking only covers what's been fetched so far.
 
 ## What Yahoo's limits mean for the strategy

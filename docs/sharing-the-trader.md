@@ -4,8 +4,8 @@
 
 1. Install Python 3.11 or newer. Nothing else to install.
 2. `python terrarium.py`
-   - The first run each day loads a year of daily prices for the S&P 500 from
-     Yahoo Finance (a few minutes).
+   - The first run each day loads a year of daily prices for the S&P 100 from
+     Yahoo Finance (about 2 minutes).
    - From 9:30 ET it scans every minute and redraws a console showing the top
      10 stocks by relative volume and, for each, whether every requirement is
      met: RSI, 50/200 EMA trend, fresh data, side allowed (buy-only on a cash

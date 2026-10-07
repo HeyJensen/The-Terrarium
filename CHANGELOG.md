@@ -1,5 +1,10 @@
 # Changelog: the Terrarium build log
 
+## 2026-10-07: Back to the S&P 100
+
+- The Trader scans the **S&P 100** again (101 stocks), matching the website's
+  scanner. With fewer stocks, every one is refreshed about every 2 minutes.
+
 ## 2026-10-07: The Trader console
 
 - `python terrarium.py` starts everything: it loads the day's price history,

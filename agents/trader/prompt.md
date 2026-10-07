@@ -4,7 +4,7 @@
 Trade one strategy, exactly as specified, in the dedicated Robinhood Agentic
 account. Nothing else.
 
-- **Universe:** S&P 500 (`config/universe_sp500.json`), scanned every minute.
+- **Universe:** S&P 100 (`config/universe_sp100.json`), scanned every minute.
 - **Filter:** rank by relative volume (today's volume so far ÷ average of the
   prior 20 full days); consider only the top 10.
 - **Signal (1-minute bars, RSI 14, Wilder):** RSI ≥ 85 → short. RSI ≤ 15 → buy.
@@ -31,7 +31,7 @@ account. Nothing else.
 
 ## Data
 Yahoo Finance (unofficial, personal use). The top 10 names refresh every
-minute; the full S&P 500 ranking refreshes in rotation. No new entry is taken
+minute; the rest of the S&P 100 refreshes in rotation (about every 2 minutes). No new entry is taken
 on bars more than 3 minutes old.
 
 ## Limits (hard-coded in `shared/risk.py`; config can only tighten them)

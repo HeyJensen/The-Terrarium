@@ -6,11 +6,11 @@ Uses Yahoo's public chart endpoint with the standard library only:
 
 Yahoo has no official API or published limits and throttles heavy use, so:
 - Daily history is fetched once per day per symbol and cached on disk
-  (run `--task prefetch` before the open; it takes a few minutes for 503 symbols).
+  (run `--task prefetch` before the open; about 2 minutes for the 101 S&P 100 symbols).
 - Every minute we stay under `max_requests_per_minute`: first the "hot" symbols
   (current top-N by relative volume + any open position), then the rest of the
-  universe round-robin. With 503 symbols and 50 requests/minute the full
-  relative-volume ranking refreshes about every 11 minutes; the top names are
+  universe round-robin. With the 101 S&P 100 symbols and 50 requests/minute the full
+  relative-volume ranking refreshes about every 2 minutes; the top names are
   refreshed every minute.
 - On 429/403/5xx we back off (1 min doubling to 15 min) and keep serving the
   last good data. The engine refuses new entries on stale bars.
