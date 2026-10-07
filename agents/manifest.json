@@ -35,6 +35,13 @@
       "type": "content",
       "stream": "content",
       "enabled": true
+    },
+    {
+      "name": "builder",
+      "path": "agents/builder",
+      "type": "ops",
+      "stream": "ops",
+      "enabled": true
     }
   ]
 }

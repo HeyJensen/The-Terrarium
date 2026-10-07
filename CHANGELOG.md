@@ -1,5 +1,19 @@
 # Changelog: the Terrarium build log
 
+## 2026-10-07: The Builder, a bot that grows the Terrarium
+
+- New `agents/builder`: audits every bot against the house rules (prompt.md,
+  agent.json, manifest entry, tests) and flags drafts waiting too long for
+  approval.
+- It ranks money-making bot ideas (Pinterest, Redbubble, Gumroad, KDP,
+  newsletter, Fiverr, a bookkeeper) and sends the best ones to the approval
+  queue, each flagged with what it would need: an account, public posting,
+  or spend.
+- Approve an idea and the builder scaffolds the new bot, draft-only and
+  switched off until you turn it on.
+- A weekly Claude routine runs it, researches fresh free-to-start ideas, and
+  opens a draft pull request for review. It never merges or publishes.
+
 ## 2026-10-07: The Terrarium talks with Whisper and Fish Audio
 
 - New `website/voice_server.py` runs on your own computer: Whisper (free,

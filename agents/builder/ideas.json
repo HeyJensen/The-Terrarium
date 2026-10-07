@@ -1,0 +1,186 @@
+{
+  "note": "Ratings are 1-5 estimates, not research results. cost 1 = free to start; risk 1 = low. The weekly builder routine adds new ideas here.",
+  "ideas": [
+    {
+      "id": "pinterest",
+      "name": "pinterest",
+      "title": "Pinterest pins for every approved listing and blog post",
+      "stream": "social",
+      "pitch": "Pinterest is a search engine for products and how-to posts, and pins keep sending traffic for months. The bot drafts 3-5 pin titles, descriptions and image prompts for each approved Etsy listing and blog post.",
+      "reuses": [
+        "approval queue",
+        "studio",
+        "content"
+      ],
+      "needs": [
+        "public_posting",
+        "account"
+      ],
+      "potential": 3,
+      "speed": 3,
+      "reuse": 5,
+      "cost": 1,
+      "risk": 1
+    },
+    {
+      "id": "redbubble",
+      "name": "marketplaces",
+      "title": "Same designs on Redbubble and TeePublic",
+      "stream": "etsy",
+      "pitch": "The studio's approved t-shirt designs can also sell on free print-on-demand marketplaces with no listing fees. The bot exports a per-marketplace sheet (title, tags, description) for manual upload, like the Printify sheet.",
+      "reuses": [
+        "studio",
+        "approval queue"
+      ],
+      "needs": [
+        "account"
+      ],
+      "potential": 3,
+      "speed": 3,
+      "reuse": 5,
+      "cost": 1,
+      "risk": 2
+    },
+    {
+      "id": "kdp-low-content",
+      "name": "kdp",
+      "title": "Amazon KDP low-content books (journals, planners, logbooks)",
+      "stream": "kdp",
+      "pitch": "Publishing on Kindle Direct Publishing is free and Amazon prints on demand. The bot picks niches from the niches board and drafts interior layouts, titles, keywords and cover prompts for journals and logbooks.",
+      "reuses": [
+        "etsy",
+        "niches board",
+        "brain"
+      ],
+      "needs": [
+        "account"
+      ],
+      "potential": 4,
+      "speed": 2,
+      "reuse": 4,
+      "cost": 1,
+      "risk": 2
+    },
+    {
+      "id": "gumroad-digital",
+      "name": "digital",
+      "title": "Digital products on Gumroad (templates, planners, trading journal)",
+      "stream": "digital",
+      "pitch": "No upfront cost, Gumroad takes a fee only on sales. Start with a trading journal spreadsheet built from the Trader's own rules, then printables the studio already designs.",
+      "reuses": [
+        "studio",
+        "trader",
+        "social"
+      ],
+      "needs": [
+        "account",
+        "public_posting"
+      ],
+      "potential": 3,
+      "speed": 3,
+      "reuse": 4,
+      "cost": 1,
+      "risk": 1
+    },
+    {
+      "id": "newsletter",
+      "name": "newsletter",
+      "title": "Weekly email newsletter",
+      "stream": "content",
+      "pitch": "A free-tier newsletter (Beehiiv or Substack) owns the audience the social bot and blog build. The bot drafts a weekly issue from new blog posts, shop items and the build log; sponsorships come once the list grows.",
+      "reuses": [
+        "content",
+        "social",
+        "CHANGELOG"
+      ],
+      "needs": [
+        "account",
+        "public_posting"
+      ],
+      "potential": 4,
+      "speed": 1,
+      "reuse": 4,
+      "cost": 1,
+      "risk": 1
+    },
+    {
+      "id": "fiverr-gigs",
+      "name": "gigs",
+      "title": "Fiverr gigs drafted and fulfilled with human review",
+      "stream": "gigs",
+      "pitch": "Fiverr was already on the plan. The bot researches gig categories AI does well (product descriptions, blog drafts, resume polish), drafts gig pages, and drafts each delivery for a human to check before it goes out.",
+      "reuses": [
+        "brain",
+        "approval queue"
+      ],
+      "needs": [
+        "account",
+        "public_posting"
+      ],
+      "potential": 4,
+      "speed": 2,
+      "reuse": 2,
+      "cost": 1,
+      "risk": 3
+    },
+    {
+      "id": "short-video",
+      "name": "shorts",
+      "title": "Short video scripts from blog posts",
+      "stream": "social",
+      "pitch": "Turns each approved blog post into 3 short video scripts with shot lists. Recording or a video tool comes later and may cost money.",
+      "reuses": [
+        "content",
+        "social"
+      ],
+      "needs": [
+        "public_posting",
+        "paid_service"
+      ],
+      "potential": 3,
+      "speed": 2,
+      "reuse": 4,
+      "cost": 3,
+      "risk": 2
+    },
+    {
+      "id": "bookkeeper",
+      "name": "bookkeeper",
+      "title": "Bookkeeper: one money ledger for every stream",
+      "stream": "ops",
+      "pitch": "Earns nothing directly but tells us which bots do. Reads Etsy, Printify, Buffer and Trader exports you drop in an inbox and keeps one profit and cost ledger per stream for the dashboard.",
+      "reuses": [
+        "trader",
+        "dashboard",
+        "inbox files"
+      ],
+      "needs": [],
+      "potential": 2,
+      "speed": 4,
+      "reuse": 4,
+      "cost": 1,
+      "risk": 1
+    },
+    {
+      "id": "signal-subscription",
+      "name": "signals",
+      "title": "Paid trade-signal subscription",
+      "stream": "trading",
+      "pitch": "Selling the Trader's signals. Blocked, kept so it is never proposed.",
+      "reuses": [
+        "trader",
+        "website"
+      ],
+      "needs": [
+        "public_posting",
+        "paid_service"
+      ],
+      "potential": 4,
+      "speed": 2,
+      "reuse": 5,
+      "cost": 3,
+      "risk": 5,
+      "blocked": "Selling trade advice can require adviser registration, and Yahoo data is personal-use only."
+    }
+  ]
+}
