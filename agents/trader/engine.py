@@ -15,7 +15,7 @@ from shared.notifications import format_trade_alert
 from shared.risk import MARGIN_MIN_EQUITY_USD, KillSwitch, effective_limits
 
 from agents.trader import strategy
-from agents.trader.indicators import relative_volume, rsi
+from agents.trader.indicators import ema, relative_volume, rsi
 from agents.trader.strategy import LONG, SHORT
 
 
@@ -27,8 +27,10 @@ class Position:
     entry_price: float
     entry_ts: str
     entry_day: str
-    target: float
-    stop: float
+    trigger: float              # +2% level: stop starts moving (or fixed take-profit)
+    stop: float                 # current stop; only ever moves in the position's favour
+    initial_stop: float
+    best_price: float           # best price seen since entry (high for longs, low for shorts)
     entry_rsi: float
     entry_rel_vol: float
     order_id: str
@@ -57,6 +59,9 @@ class TraderEngine:
                  decisions, logger, notifier, approver=None, reporter=None):
         self.cfg = cfg
         self.limits = effective_limits(cfg)
+        self.after_trigger = cfg.get("after_profit_trigger", "trail")
+        if self.after_trigger not in strategy.AFTER_TRIGGER_MODES:
+            raise ValueError(f"after_profit_trigger must be one of {strategy.AFTER_TRIGGER_MODES}")
         self.broker, self.feed, self.universe = broker, feed, universe
         self.decisions, self.logger, self.notifier = decisions, logger, notifier
         self.reporter = reporter
@@ -159,10 +164,21 @@ class TraderEngine:
             if bar.ts < entry_ts or (self._last_checked_bar and bar.ts.isoformat() <= self._last_checked_bar):
                 continue
             self._last_checked_bar = bar.ts.isoformat()
-            hit = strategy.bar_exit(p.side, bar.open, bar.high, bar.low, p.target, p.stop)
+            # Check the stop as it stood when the bar opened, then ratchet it from the bar's extreme.
+            target = p.trigger if self.after_trigger == "take_profit" else None
+            hit = strategy.bar_exit(p.side, bar.open, bar.high, bar.low, p.stop, target)
             if hit:
                 self._exit(now, hit[0], hit[1])
                 return
+            p.best_price = max(p.best_price, bar.high) if p.side == LONG else min(p.best_price, bar.low)
+            new_stop = round(strategy.ratchet_stop(p.side, p.entry_price, p.best_price, p.stop, p.trigger,
+                                                   self.after_trigger, float(self.cfg.get("trail_pct", 1.0))), 4)
+            if new_stop != p.stop:
+                self.decisions.record("stop_moved", f"price reached the +{self.cfg.get('profit_trigger_pct', 2.0):g}% "
+                                      f"trigger; stop {self.after_trigger}", at=now, symbol=p.symbol, side=p.side,
+                                      old_stop=p.stop, new_stop=new_stop, best_price=p.best_price,
+                                      entry_price=p.entry_price)
+                p.stop = new_stop
         held = trading_days_between(date.fromisoformat(p.entry_day), today)
         if held >= int(self.cfg.get("max_hold_days", 5)) and bars:
             self._exit(now, f"max_hold_days ({held} >= {self.cfg.get('max_hold_days', 5)})", bars[-1].close)
@@ -217,12 +233,26 @@ class TraderEngine:
             scan.append({"symbol": sym, "rel_vol": round(rv, 3), "rsi": None if value is None else round(value, 2),
                          "signal": signal, "price": bars_by_symbol[sym][-1].close})
         signals = [s for s in scan if s["signal"]]
+        if signals and self.cfg.get("trend_filter_enabled", True):
+            fast_n, slow_n = int(cfg.get("trend_fast_ema", 50)), int(cfg.get("trend_slow_ema", 200))
+            lookback_days = int(cfg.get("trend_lookback_days", 252))
+            for s in signals:
+                closes = self.feed.prior_daily_closes(s["symbol"], today, lookback_days)
+                fast, slow = ema(closes, fast_n), ema(closes, slow_n)
+                s["ema_fast"] = None if fast is None else round(fast, 4)
+                s["ema_slow"] = None if slow is None else round(slow, 4)
+                s["trend_ok"] = strategy.trend_allows(s["signal"], fast, slow)
         self.decisions.record("scan", f"{len(rel_vols)} symbols with data; top {len(top)} by relative volume; "
                               f"{len(signals)} signal(s)", at=now, top=scan)
         self._report("watching", f"scanned top {len(top)}, {len(signals)} signal(s)", acct.equity)
 
         mode = self._effective_mode(acct.equity)
         for s in signals:  # already ordered by relative volume, highest first
+            if s.get("trend_ok") is False:
+                need = "50 EMA below 200 EMA" if s["signal"] == SHORT else "50 EMA above 200 EMA"
+                self.decisions.record("skip_signal", f"{s['signal'].upper()} skipped: daily trend filter needs {need}"
+                                      + ("" if s["ema_slow"] is not None else " (not enough daily history)"), at=now, **s)
+                continue
             if s["signal"] == SHORT:
                 if mode != "margin" or acct.account_type != "margin":
                     why = ("cash mode is long-only" if self.limits["mode"] == "cash"
@@ -254,11 +284,11 @@ class TraderEngine:
             self.decisions.record("entry_not_approved", "human did not approve within the timeout", at=now, **s)
             return False
         fill = self.broker.place_market_order(s["symbol"], side, qty, s["price"], now)
-        target, stop = strategy.exit_levels(fill.price, s["signal"], float(cfg.get("take_profit_pct", 2.0)),
-                                            float(cfg.get("stop_loss_pct", 1.0)))
+        trigger, stop = strategy.initial_levels(fill.price, s["signal"], float(cfg.get("profit_trigger_pct", 2.0)),
+                                                float(cfg.get("stop_loss_pct", 1.0)))
         self.position = Position(s["symbol"], s["signal"], qty, fill.price, now.isoformat(),
-                                 to_et(now).date().isoformat(), round(target, 4), round(stop, 4),
-                                 s["rsi"], s["rel_vol"], fill.order_id)
+                                 to_et(now).date().isoformat(), round(trigger, 4), round(stop, 4), round(stop, 4),
+                                 fill.price, s["rsi"], s["rel_vol"], fill.order_id)
         self.ledger["tasks_today"] += 1
         self._save()
         self.decisions.record(
@@ -266,11 +296,12 @@ class TraderEngine:
                      f"on a top-{cfg.get('top_n_by_relative_volume', 10)} relative-volume name",
             at=now, symbol=s["symbol"], side=s["signal"], qty=qty, entry_price=fill.price,
             reference_price=s["price"], slippage_vs_reference=round(fill.price - s["price"], 4),
-            target=round(target, 4), stop=round(stop, 4), rsi=s["rsi"], rel_vol=s["rel_vol"],
+            profit_trigger=round(trigger, 4), stop=round(stop, 4), after_trigger=self.after_trigger,
+            rsi=s["rsi"], rel_vol=s["rel_vol"], ema_fast=s.get("ema_fast"), ema_slow=s.get("ema_slow"),
             mode=mode, order_id=fill.order_id, broker=self.broker.name, supervised=self.supervised)
         self.notifier.trade_alert(format_trade_alert(
             "BUY" if s["signal"] == LONG else "SHORT", s["symbol"], fill.price, s["rsi"], s["rel_vol"],
-            cfg.get("take_profit_pct", 2.0), cfg.get("stop_loss_pct", 1.0)))
+            cfg.get("profit_trigger_pct", 2.0), cfg.get("stop_loss_pct", 1.0)))
         self._report("in_position", f"entered {s['signal']} {s['symbol']}")
         return True
 

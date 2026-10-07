@@ -18,17 +18,19 @@ from agents.trader import strategy
 from agents.trader.broker import SimBroker
 from agents.trader.data_feed import ReplayFeed
 from agents.trader.engine import TraderEngine
-from agents.trader.indicators import relative_volume, rsi
+from agents.trader.indicators import ema, relative_volume, rsi
 from tests import fixtures
 
 MON, TUE, WED = date(2026, 10, 5), date(2026, 10, 6), date(2026, 10, 7)
 
 BASE_CFG = {
     "order_routing": "dry_run", "phase": "shakedown", "mode": "cash", "account_size_usd": 1000,
-    "risk_per_trade_pct": 1.0, "take_profit_pct": 2.0, "stop_loss_pct": 1.0, "max_concurrent_positions": 1,
+    "risk_per_trade_pct": 1.0, "stop_loss_pct": 1.0, "profit_trigger_pct": 2.0, "after_profit_trigger": "trail",
+    "trail_pct": 1.0, "max_concurrent_positions": 1,
     "max_hold_days": 5, "daily_loss_limit_pct": 3.0, "kill_switch_flattens_position": True,
     "allow_fractional_shares": False, "top_n_by_relative_volume": 10, "relative_volume_lookback_days": 20,
-    "rsi_period": 14, "rsi_short_at_or_above": 80, "rsi_long_at_or_below": 15,
+    "rsi_period": 14, "rsi_short_at_or_above": 85, "rsi_long_at_or_below": 15,
+    "trend_filter_enabled": True, "trend_fast_ema": 50, "trend_slow_ema": 200, "trend_lookback_days": 252,
 }
 
 
@@ -44,6 +46,12 @@ class Indicators(unittest.TestCase):
                   45.89, 46.03, 45.61, 46.28, 46.28]
         self.assertAlmostEqual(rsi(closes), 70.53, delta=0.1)
 
+    def test_ema(self):
+        self.assertIsNone(ema([1.0] * 49, 50))
+        self.assertAlmostEqual(ema([5.0] * 300, 200), 5.0)
+        rising = [float(i) for i in range(252)]
+        self.assertGreater(ema(rising, 50), ema(rising, 200))
+
     def test_relative_volume(self):
         self.assertAlmostEqual(relative_volume(3_000_000, [1_000_000] * 20), 3.0)
         self.assertIsNone(relative_volume(10, []))
@@ -51,21 +59,41 @@ class Indicators(unittest.TestCase):
 
 class Strategy(unittest.TestCase):
     def test_signals(self):
-        self.assertEqual(strategy.entry_signal(80, 80, 15), "short")
-        self.assertEqual(strategy.entry_signal(15, 80, 15), "long")
-        self.assertIsNone(strategy.entry_signal(50, 80, 15))
+        self.assertEqual(strategy.entry_signal(85, 85, 15), "short")
+        self.assertIsNone(strategy.entry_signal(84.9, 85, 15))
+        self.assertEqual(strategy.entry_signal(15, 85, 15), "long")
+        self.assertIsNone(strategy.entry_signal(50, 85, 15))
+
+    def test_trend_filter(self):
+        self.assertTrue(strategy.trend_allows("short", 90, 100))
+        self.assertFalse(strategy.trend_allows("short", 110, 100))
+        self.assertTrue(strategy.trend_allows("long", 110, 100))
+        self.assertFalse(strategy.trend_allows("long", 90, 100))
+        self.assertFalse(strategy.trend_allows("long", None, 100))
+
+    def test_stop_ratchet(self):
+        # below the +2% trigger: stop stays at -1%
+        self.assertEqual(strategy.ratchet_stop("long", 100, 101.9, 99, 102, "trail", 1), 99)
+        # at +2%: trail 1% behind the high (~ +1% locked), breakeven moves to entry
+        self.assertAlmostEqual(strategy.ratchet_stop("long", 100, 102, 99, 102, "trail", 1), 100.98)
+        self.assertEqual(strategy.ratchet_stop("long", 100, 102, 99, 102, "breakeven", 1), 100)
+        # never moves backwards
+        self.assertEqual(strategy.ratchet_stop("long", 100, 102, 101.5, 102, "breakeven", 1), 101.5)
+        # shorts mirror it
+        self.assertAlmostEqual(strategy.ratchet_stop("short", 100, 98, 101, 98, "trail", 1), 98.98)
 
     def test_levels(self):
-        t, s = strategy.exit_levels(100, "long", 2, 1)
+        t, s = strategy.initial_levels(100, "long", 2, 1)
         self.assertAlmostEqual(t, 102); self.assertAlmostEqual(s, 99)
-        t, s = strategy.exit_levels(100, "short", 2, 1)
+        t, s = strategy.initial_levels(100, "short", 2, 1)
         self.assertAlmostEqual(t, 98); self.assertAlmostEqual(s, 101)
 
     def test_same_bar_both_levels_assumes_stop(self):
-        self.assertEqual(strategy.bar_exit("long", 100, 103, 98, 102, 99)[0], "stop_loss")
+        self.assertEqual(strategy.bar_exit("long", 100, 103, 98, stop=99, target=102)[0], "stop_loss")
+        self.assertIsNone(strategy.bar_exit("long", 100, 103, 99.5, stop=99))  # no fixed target in trail mode
 
     def test_gap_fills_at_open(self):
-        self.assertEqual(strategy.bar_exit("long", 95, 96, 94, 102, 99), ("stop_loss_gap", 95))
+        self.assertEqual(strategy.bar_exit("long", 95, 96, 94, stop=99, target=102), ("stop_loss_gap", 95))
 
     def test_sizing_is_one_full_position(self):
         self.assertEqual(strategy.position_size(1000, 1, 1, 100, 1000, False), 10)
@@ -151,8 +179,9 @@ class EngineReplay(unittest.TestCase):
             engine.step(now)
         return engine, broker, decisions.read()
 
-    def test_long_entry_then_take_profit(self):
-        closes = fixtures.selloff_then(100, 20, 0.1, [98.2 + 0.1 * i for i in range(30)])
+    def test_long_entry_then_trailing_stop(self):
+        up = [98.2 + 0.1 * i for i in range(40)]           # rallies past +2% to ~102.1
+        closes = fixtures.selloff_then(100, 20, 0.1, up + [up[-1] - 0.1 * i for i in range(1, 30)])
         fixtures.write_symbol(self.data, "AAPL", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)})
         self._quiet("MSFT", [MON])
         engine, broker, log = self.run_engine()
@@ -163,9 +192,10 @@ class EngineReplay(unittest.TestCase):
         self.assertEqual(entries[0]["symbol"], "AAPL")
         self.assertLessEqual(entries[0]["rsi"], 15)
         self.assertIn("rel_vol", entries[0])
-        self.assertEqual(exits[0]["action"], "exit")
-        self.assertEqual(exits[0]["reasoning"], "take_profit")
+        self.assertTrue([e for e in log if e["action"] == "stop_moved"])
+        self.assertEqual(exits[0]["reasoning"], "stop_loss")  # the trailed stop, now in profit
         self.assertGreater(exits[0]["pnl"], 0)
+        self.assertGreater(exits[0]["exit_price"], entries[0]["entry_price"] * 1.009)
         self.assertIsNone(engine.position)
         # Cash account: proceeds are unsettled, so later signals the same day can't trade.
         self.assertEqual(len(broker.fills), 2)
@@ -180,7 +210,7 @@ class EngineReplay(unittest.TestCase):
 
     def test_short_skipped_in_cash_mode(self):
         closes = [100 + 0.1 * i for i in range(25)]
-        fixtures.write_symbol(self.data, "TSLA", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)})
+        fixtures.write_symbol(self.data, "TSLA", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)}, trend="down")
         engine, broker, log = self.run_engine()
         self.assertEqual(broker.fills, [])
         skips = [e for e in log if e["action"] == "skip_signal"]
@@ -188,15 +218,16 @@ class EngineReplay(unittest.TestCase):
 
     def test_margin_mode_below_2000_stays_long_only(self):
         closes = [100 + 0.1 * i for i in range(25)]
-        fixtures.write_symbol(self.data, "TSLA", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)})
+        fixtures.write_symbol(self.data, "TSLA", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)}, trend="down")
         engine, broker, log = self.run_engine({"mode": "margin"}, SimBroker(1000, "margin", slippage_bps=0))
         self.assertEqual(broker.fills, [])
         self.assertIn("$2,000+", [e for e in log if e["action"] == "skip_signal"][0]["reasoning"])
 
     def test_margin_short_with_easy_to_borrow_check(self):
         closes = [100 + 0.1 * i for i in range(25)] + [102.4 - 0.1 * i for i in range(45)]
-        fixtures.write_symbol(self.data, "TSLA", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)})
-        engine, broker, log = self.run_engine({"mode": "margin"}, SimBroker(2500, "margin", slippage_bps=0))
+        fixtures.write_symbol(self.data, "TSLA", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)}, trend="down")
+        engine, broker, log = self.run_engine({"mode": "margin", "after_profit_trigger": "take_profit"},
+                                              SimBroker(2500, "margin", slippage_bps=0))
         entry = [e for e in log if e["action"] == "entry"][0]
         self.assertEqual(entry["side"], "short")
         self.assertEqual(entry["qty"], 9)  # sized off the $1,000 base, not the $2,500 equity
@@ -204,11 +235,38 @@ class EngineReplay(unittest.TestCase):
 
         # Same setup, but the name is hard to borrow -> skipped.
         self.tmp.cleanup(); self.setUp()
-        fixtures.write_symbol(self.data, "TSLA", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)})
+        fixtures.write_symbol(self.data, "TSLA", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)}, trend="down")
         engine, broker, log = self.run_engine({"mode": "margin"},
                                               SimBroker(2500, "margin", slippage_bps=0, hard_to_borrow={"TSLA"}))
         self.assertFalse([f for f in broker.fills if f.side == "sell_short"])
         self.assertTrue([e for e in log if "easy-to-borrow" in e["reasoning"]])
+
+    def test_breakeven_mode(self):
+        up = [98.2 + 0.1 * i for i in range(40)]
+        closes = fixtures.selloff_then(100, 20, 0.1, up + [up[-1] - 0.1 * i for i in range(1, 60)])
+        fixtures.write_symbol(self.data, "AAPL", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)})
+        _, _, log = self.run_engine({"after_profit_trigger": "breakeven"})
+        moved = [e for e in log if e["action"] == "stop_moved"]
+        exit_ = [e for e in log if e["action"] == "exit"][0]
+        self.assertEqual(len(moved), 1)
+        self.assertEqual(moved[0]["new_stop"], moved[0]["entry_price"])
+        self.assertAlmostEqual(exit_["pnl"], 0, places=2)
+
+    def test_trend_filter_blocks_counter_trend_long(self):
+        closes = fixtures.selloff_then(100, 20, 0.1, [98.2 + 0.1 * i for i in range(30)])
+        fixtures.write_symbol(self.data, "AAPL", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)}, trend="down")
+        _, broker, log = self.run_engine()
+        self.assertEqual(broker.fills, [])
+        skip = [e for e in log if e["action"] == "skip_signal"][0]
+        self.assertIn("50 EMA above 200 EMA", skip["reasoning"])
+        self.assertLess(skip["ema_fast"], skip["ema_slow"])
+
+    def test_trend_filter_without_history_skips(self):
+        closes = fixtures.selloff_then(100, 20, 0.1, [98.2 + 0.1 * i for i in range(30)])
+        fixtures.write_symbol(self.data, "AAPL", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)}, trend=None)
+        _, broker, log = self.run_engine()
+        self.assertEqual(broker.fills, [])
+        self.assertIn("not enough daily history", [e for e in log if e["action"] == "skip_signal"][0]["reasoning"])
 
     def test_overnight_gap_trips_kill_switch_and_flattens(self):
         day1 = fixtures.selloff_then(100, 20, 0.1, [98.1])  # enters long ~98.1, holds flat
@@ -243,7 +301,7 @@ class EngineReplay(unittest.TestCase):
     def test_every_decision_has_timestamp_and_reasoning(self):
         closes = fixtures.selloff_then(100, 20, 0.1, [98.2 + 0.1 * i for i in range(30)])
         fixtures.write_symbol(self.data, "AAPL", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)})
-        _, _, log = self.run_engine()
+        _, _, log = self.run_engine({"after_profit_trigger": "take_profit"})
         self.assertTrue(log)
         for e in log:
             self.assertIn("ts", e); self.assertIn("reasoning", e); self.assertIn("action", e)

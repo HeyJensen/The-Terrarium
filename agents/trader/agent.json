@@ -1,8 +1,8 @@
 {
   "name": "trader",
   "type": "trading",
-  "description": "RSI(14) mean-reversion on 1-minute bars across the 10 highest relative-volume S&P 100 names. One position at a time, +2% target / -1% stop.",
-  "version": "0.1.0",
+  "description": "RSI(14) on 1-minute bars across the 10 highest relative-volume S&P 500 names, filtered by the daily 50/200 EMA trend. One position at a time, -1% stop that trails once +2% is reached.",
+  "version": "0.2.0",
   "entrypoint": "agents/trader/run.py",
   "stream": "trading",
   "config_schema": {
@@ -11,15 +11,21 @@
     "mode": {"type": "string", "enum": ["cash", "margin"], "default": "cash"},
     "account_size_usd": {"type": "number", "maximum": 1000, "default": 1000},
     "risk_per_trade_pct": {"type": "number", "maximum": 1.0, "default": 1.0},
-    "take_profit_pct": {"type": "number", "default": 2.0},
     "stop_loss_pct": {"type": "number", "default": 1.0},
+    "profit_trigger_pct": {"type": "number", "default": 2.0},
+    "after_profit_trigger": {"type": "string", "enum": ["trail", "breakeven", "take_profit"], "default": "trail"},
+    "trail_pct": {"type": "number", "default": 1.0},
     "max_concurrent_positions": {"type": "integer", "maximum": 1, "default": 1},
     "max_hold_days": {"type": "integer", "default": 5},
     "daily_loss_limit_pct": {"type": "number", "maximum": 3.0, "default": 3.0},
     "top_n_by_relative_volume": {"type": "integer", "default": 10},
     "relative_volume_lookback_days": {"type": "integer", "default": 20},
     "rsi_period": {"type": "integer", "default": 14},
-    "rsi_short_at_or_above": {"type": "number", "default": 80},
-    "rsi_long_at_or_below": {"type": "number", "default": 15}
+    "rsi_short_at_or_above": {"type": "number", "default": 85},
+    "rsi_long_at_or_below": {"type": "number", "default": 15},
+    "trend_filter_enabled": {"type": "boolean", "default": true},
+    "trend_fast_ema": {"type": "integer", "default": 50},
+    "trend_slow_ema": {"type": "integer", "default": 200},
+    "trend_lookback_days": {"type": "integer", "default": 252}
   }
 }

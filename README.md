@@ -20,7 +20,7 @@ Python 3.11+, standard library only. No dependencies to install.
 
 ```bash
 cp config/.env.example config/.env       # fill in values; the file is git-ignored
-python -m unittest                        # 26 tests
+python -m unittest                        # 32 tests
 python agents/trader/run.py --task check  # shows limits and whether live orders are possible
 python -m dashboard.server                # http://127.0.0.1:8787/api/dashboard
 ```

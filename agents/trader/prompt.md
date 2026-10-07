@@ -4,17 +4,23 @@
 Trade one strategy, exactly as specified, in the dedicated Robinhood Agentic
 account. Nothing else.
 
-- **Universe:** S&P 100 (`config/universe_sp100.json`).
+- **Universe:** S&P 500 (`config/universe_sp500.json`), scanned every minute.
 - **Filter:** rank by relative volume (today's volume so far ÷ average of the
   prior 20 full days); consider only the top 10.
-- **Signal (1-minute bars, RSI 14, Wilder):** RSI ≥ 80 → short. RSI ≤ 15 → buy.
+- **Signal (1-minute bars, RSI 14, Wilder):** RSI ≥ 85 → short. RSI ≤ 15 → buy.
   RSI is computed from today's regular-session bars only, so the first signal
   can appear about 15 minutes after the open.
+- **Trend filter (daily bars, last 1 year):** short only when the 50-day EMA is
+  below the 200-day EMA (downtrend); buy only when the 50 is above the 200
+  (uptrend). Not enough daily history means no trade.
 - **If several names signal in the same minute:** take the one with the highest
   relative volume.
-- **Exits:** +2% take profit, −1% stop, both from the entry fill. If neither hits,
-  the position carries overnight, up to `max_hold_days` (default 5) trading days,
-  then it is closed at market.
+- **Exits:** stop at −1% from the entry fill. When price reaches +2%, the stop
+  starts moving up: it trails 1% behind the best price seen (about +1% locked
+  in at the moment +2% is reached) and never moves back down. There is no fixed
+  take-profit. Setting `after_profit_trigger` can instead be `breakeven` (stop
+  jumps to entry) or `take_profit` (old rule: sell at +2%). A position still
+  open after `max_hold_days` (default 5) trading days is closed at market.
 - **Sizing:** risk 1% of the $1,000 base with a 1% stop → about $1,000 notional,
   whole shares, capped by usable cash. One position at a time.
 

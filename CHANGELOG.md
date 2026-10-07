@@ -1,5 +1,15 @@
 # Changelog: the Terrarium build log
 
+## 2026-10-07: Trader strategy v0.2
+
+- Universe widened from the S&P 100 to the **S&P 500**.
+- Short trigger raised to **RSI ≥ 85** (buy trigger stays RSI ≤ 15).
+- New **trend filter**: shorts only when the daily 50 EMA is below the 200 EMA,
+  buys only when it's above, using a year of daily bars.
+- The **+2% take-profit is gone**. At +2% the stop starts trailing 1% behind
+  the best price, so a winner can keep running while about +1% is locked in.
+- 32 tests. Orders still off.
+
 ## 2026-10-07: Day 1, the foundation and the Trader
 
 **Built**

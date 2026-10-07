@@ -17,6 +17,19 @@ Sources: [FINRA: Understanding the New Intraday Margin Requirements](https://www
 [ACA Group summary](https://www.acaglobal.com/industry-insights/finra-ends-the-pattern-day-trader-rule/),
 [Finder on Robinhood day trading](https://www.finder.com/stock-trading/robinhood-day-trading).
 
+## Strategy changes from Nathan (2026-10-07, second message)
+
+| Change | Was | Now | Note |
+|---|---|---|---|
+| Universe | S&P 100 | **S&P 500** (503 tickers) | Default keeps the relative-volume filter (top 10 names) since the new message didn't drop it. Set `top_n_by_relative_volume` higher to widen it. |
+| Short trigger | RSI ≥ 80 | **RSI ≥ 85** | Long trigger stays RSI ≤ 15. |
+| Trend filter | none | **50 EMA vs 200 EMA on daily bars, 1 year** | Shorts only in a downtrend, longs only in an uptrend. In cash mode only the long side matters. |
+| Exit at +2% | sell (take profit) | **stop moves up instead** | Default `trail`: stop trails 1% behind the best price, so about +1% is locked when +2% is reached. Options: `breakeven`, `take_profit`. |
+
+Effects worth knowing: the trend filter removes most RSI ≤ 15 buys during
+market selloffs, so expect fewer trades. With no fixed target, winners can
+run until the trailing stop or the 5-day max hold.
+
 ## Defaults chosen where the spec was silent
 
 - **RSI warm-up:** RSI(14) uses only today's regular-session 1-minute bars, so
@@ -28,6 +41,9 @@ Sources: [FINRA: Understanding the New Intraday Margin Requirements](https://www
 - **Several signals at once:** take the highest relative volume.
 - **Both target and stop inside one bar:** assume the stop hit (conservative).
 - **Gap through a level at the open:** exit at the open price.
+- **Trailing stop timing:** each 1-minute bar is checked against the stop as it
+  stood when the bar opened, then the stop is moved using that bar's high
+  (low for shorts).
 - **Day P&L for the −3% kill switch:** measured from the previous session's
   ending equity, so an overnight gap counts.
 - **Kill switch:** also flattens an open position (setting
@@ -47,6 +63,7 @@ Sources: [FINRA: Understanding the New Intraday Margin Requirements](https://www
 - **Stops live in the engine, not at the broker.** If the engine or your
   computer stops, there is no stop protecting the position. Resting broker
   stop orders depend on what the MCP supports (unconfirmed).
-- **Market data is the open question.** The strategy needs 1-minute bars and
-  20 days of daily volume for 101 symbols every minute. Robinhood's MCP doesn't
+- **Market data is the open question.** The strategy needs 1-minute bars for
+  503 symbols every minute, plus 20 days of daily volume and a year of daily
+  closes per symbol. Robinhood's MCP doesn't
   document either.

@@ -27,3 +27,15 @@ def relative_volume(today_volume: float, prior_daily_volumes: list[float]) -> fl
         return None
     avg = sum(prior_daily_volumes) / len(prior_daily_volumes)
     return today_volume / avg if avg > 0 else None
+
+
+def ema(values: list[float], period: int) -> float | None:
+    """Exponential moving average of the series, seeded with the SMA of the
+    first `period` values. None until `period` values exist."""
+    if period <= 0 or len(values) < period:
+        return None
+    k = 2.0 / (period + 1)
+    value = sum(values[:period]) / period
+    for v in values[period:]:
+        value = v * k + value * (1 - k)
+    return value
