@@ -29,7 +29,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from shared.config import ROOT, load_settings  # noqa: E402
 from shared.logger import DecisionLog, get_logger  # noqa: E402
-from shared.market_calendar import is_regular_hours  # noqa: E402
+from shared.market_calendar import is_regular_hours, is_trading_day, to_et  # noqa: E402
 from shared.notifications import Notifier  # noqa: E402
 
 from agents.trader.broker import SimBroker  # noqa: E402
@@ -158,6 +158,15 @@ def main(argv=None) -> int:
     engine, broker, sim_path = build(settings, feed, universe, state_dir, snap, logger)
     started = time.time()
     seen_open = False
+    et = to_et(datetime.now(timezone.utc))
+    in_window = is_trading_day(et.date()) and (9, 0) <= (et.hour, et.minute) < (16, 30)
+    if not in_window:  # outside market hours: refresh the snapshot once and stop
+        engine.step(datetime.now(timezone.utc))
+        broker.save(sim_path)
+        snap.write(engine)
+        publish()
+        logger.info("market closed; wrote one snapshot and stopped")
+        return 0
     logger.info("hosted scanner running on Yahoo Finance data; it reports only and places no orders")
     while time.time() - started < args.max_minutes * 60:
         now = datetime.now(timezone.utc)
