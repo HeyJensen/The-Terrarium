@@ -116,3 +116,22 @@ good data).
 
 Test without the network: `python website/scanner.py --replay DIR --out out.json`.
 Point any copy of the page at a feed with `index.html?feed=<url>`.
+
+## Console voice (Whisper + Fish Audio)
+
+`website/voice_server.py` runs on your computer next to the console. The site
+(local or the public GitHub Pages copy) checks `http://127.0.0.1:8788` when it
+loads; if the voice server answers, the mic records through Whisper and answers
+are read aloud by Fish Audio. If not, the site uses the browser's free voice.
+
+```
+pip install faster-whisper            # free, runs locally; first use downloads the model
+set FISH_AUDIO_API_KEY=your-key       # Windows; use export on Mac/Linux. Paid per use.
+set FISH_AUDIO_VOICE_ID=voice-id      # optional, any voice from fish.audio
+python website/voice_server.py
+```
+
+Optional: `WHISPER_MODEL` (default `base.en`), `FISH_AUDIO_MODEL`, `VOICE_PORT`.
+The key stays on your computer; it never goes into the site or the repo.
+Agents can call the same functions: `from website.voice_server import transcribe, speak`.
+Only pages on heyjensen.github.io, localhost, or opened as a local file can use the server.

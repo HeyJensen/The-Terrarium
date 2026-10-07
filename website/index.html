@@ -278,6 +278,7 @@ const TERRARIUM_CONFIG = {
   pollMs: 5000,
   feedPollMs: 60000,
   ownerName: "Nathan",
+  voiceBase: "http://127.0.0.1:8788", // website/voice_server.py on this computer: Whisper + Fish Audio (browser voice if absent)
 };
 
 /* Hives the terrarium grows into. Agents from agents/manifest.json fill these
@@ -1247,6 +1248,25 @@ scene = (() => {
 (() => {
   const answerEl = $("answer"), noteEl = $("voice-note"), micBtn = $("mic"), briefBtn = $("brief"), speakBtn = $("speak-toggle");
   let speakOn = true, claudeSample = null, listening = false, rec = null;
+  // Console voice: website/voice_server.py on this computer (Whisper listens, Fish Audio speaks).
+  let consoleVoice = null, audioEl = null;
+  async function findConsoleVoice() {
+    try {
+      const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 1500);
+      const r = await fetch(TERRARIUM_CONFIG.voiceBase + "/api/voice/status", { signal: ctl.signal });
+      clearTimeout(t);
+      consoleVoice = r.ok ? await r.json() : null;
+    } catch (e) { consoleVoice = null; }
+    if (consoleVoice && (consoleVoice.listen || consoleVoice.speak)) {
+      micBtn.disabled = false; micBtn.style.opacity = "";
+      noteEl.textContent = `Voice from your computer: ${consoleVoice.listen ? "Whisper is listening" : "browser listening"}, ${consoleVoice.speak ? "Fish Audio is speaking" : "browser speaking"}.`;
+    }
+    return consoleVoice;
+  }
+  function stopTalking() {
+    try { speechSynthesis.cancel(); } catch (e) {}
+    if (audioEl) { audioEl.pause(); audioEl = null; }
+  }
   try { speakOn = localStorage.getItem("terrarium.speak") !== "off"; } catch (e) {}
   speakBtn.setAttribute("aria-pressed", speakOn);
 
@@ -1260,13 +1280,27 @@ scene = (() => {
     const w = document.createElement("span"); w.className = "who"; w.textContent = who;
     answerEl.replaceChildren(w, document.createTextNode(text));
   }
-  function say(text) {
+  function spokenText(text) {
+    return text.replace(/−\$/g, "minus $").replace(/\$([\d,]+)\.(\d\d)/g, (m, d, c) => `${d} dollars${c !== "00" ? " and " + Number(c) + " cents" : ""}`).replace(/P&L/g, "profit and loss");
+  }
+  async function say(text) {
     show(text);
-    if (!speakOn || !("speechSynthesis" in window)) return;
+    if (!speakOn) return;
+    stopTalking();
+    if (consoleVoice && consoleVoice.speak) {
+      try {
+        const r = await fetch(TERRARIUM_CONFIG.voiceBase + "/api/voice/speak", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: spokenText(text) }) });
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.status);
+        const url = URL.createObjectURL(await r.blob());
+        audioEl = new Audio(url); audioEl.onended = () => URL.revokeObjectURL(url);
+        await audioEl.play();
+        return;
+      } catch (e) { noteEl.textContent = `Fish Audio didn't answer (${e.message || e}), so the browser voice is reading instead.`; }
+    }
+    if (!("speechSynthesis" in window)) return;
     try {
-      speechSynthesis.cancel();
-      const spoken = text.replace(/−\$/g, "minus $").replace(/\$([\d,]+)\.(\d\d)/g, (m, d, c) => `${d} dollars${c !== "00" ? " and " + Number(c) + " cents" : ""}`).replace(/P&L/g, "profit and loss");
-      const u = new SpeechSynthesisUtterance(spoken);
+      const spoken = text;
+      const u = new SpeechSynthesisUtterance(spokenText(spoken));
       const vs = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
       const pick = vs.find(v => /natural|neural|samantha|google us|aria|jenny/i.test(v.name)) || vs[0];
       if (pick) u.voice = pick;
@@ -1340,12 +1374,42 @@ scene = (() => {
     }
   }
 
+  // Whisper path: record a short clip and send it to the voice server on this computer.
+  let recorder = null;
+  async function listenWithWhisper() {
+    if (recorder) { recorder.stop(); return; }
+    stopTalking(); noteEl.textContent = "";
+    let stream;
+    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e) { noteEl.textContent = "The microphone isn't available on this page. Type your question instead."; return; }
+    const chunks = [];
+    recorder = new MediaRecorder(stream);
+    recorder.ondataavailable = ev => ev.data.size && chunks.push(ev.data);
+    const cap = setTimeout(() => recorder && recorder.stop(), 15000);
+    recorder.onstop = async () => {
+      clearTimeout(cap); stream.getTracks().forEach(t => t.stop());
+      const type = (recorder.mimeType || "audio/webm").split(";")[0];
+      recorder = null; listening = false; micBtn.dataset.on = "false";
+      if (!chunks.length) { show("Tap the mic and ask what any hive is doing.", "Mic"); return; }
+      show("Transcribing…", "Mic");
+      try {
+        const r = await fetch(TERRARIUM_CONFIG.voiceBase + "/api/voice/listen", { method: "POST", headers: { "Content-Type": type }, body: new Blob(chunks, { type }) });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error || r.status);
+        if (j.text) ask(j.text); else { show("I didn't catch that.", "Mic"); }
+      } catch (e) { noteEl.textContent = `Whisper didn't answer (${e.message || e}). Type your question instead.`; show("Tap the mic and ask what any hive is doing.", "Mic"); }
+    };
+    recorder.start(); listening = true; micBtn.dataset.on = "true";
+    show("Listening… tap the mic again when you're done.", "Mic");
+  }
+
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) { micBtn.disabled = true; micBtn.style.opacity = 0.45; noteEl.textContent = "Talking needs a browser with speech recognition, like Chrome or Safari. You can type questions meanwhile, and answers are still read aloud."; }
   micBtn.addEventListener("click", () => {
+    if (consoleVoice && consoleVoice.listen && window.MediaRecorder) { listenWithWhisper(); return; }
     if (!SR) return;
     if (listening && rec) { rec.stop(); return; }
-    try { speechSynthesis.cancel(); } catch (e) {}
+    stopTalking();
     noteEl.textContent = "";
     rec = new SR();
     rec.lang = "en-US"; rec.interimResults = true; rec.maxAlternatives = 1;
@@ -1369,8 +1433,9 @@ scene = (() => {
   speakBtn.addEventListener("click", () => {
     speakOn = !speakOn; speakBtn.setAttribute("aria-pressed", speakOn);
     try { localStorage.setItem("terrarium.speak", speakOn ? "on" : "off"); } catch (e) {}
-    if (!speakOn) try { speechSynthesis.cancel(); } catch (e) {}
+    if (!speakOn) stopTalking();
   });
+  findConsoleVoice();
   try { if ("speechSynthesis" in window) speechSynthesis.getVoices(); } catch (e) {}
   // Claude answers free-form questions when the viewer allows it; otherwise the page answers simply on its own.
   if (window.claude && window.claude.use) window.claude.use("sample").then(s => { claudeSample = s || null; }).catch(() => {});

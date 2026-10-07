@@ -1,5 +1,13 @@
 # Changelog: the Terrarium build log
 
+## 2026-10-07: The Terrarium talks with Whisper and Fish Audio
+
+- New `website/voice_server.py` runs on your own computer: Whisper (free,
+  local) turns your voice into text, and Fish Audio reads answers aloud.
+- The website finds it automatically. Without it, the site keeps using the
+  browser's own free voice.
+- The Fish Audio key lives only in an environment variable on your computer.
+
 ## 2026-10-07: Every stock, every 15 seconds
 
 - The Trader now refreshes all 101 S&P 100 stocks at once every 15 seconds,
