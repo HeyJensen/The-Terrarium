@@ -21,6 +21,11 @@ account. Nothing else.
   take-profit. Setting `after_profit_trigger` can instead be `breakeven` (stop
   jumps to entry) or `take_profit` (old rule: sell at +2%). A position still
   open after `max_hold_days` (default 5) trading days is closed at market.
+- **Orders:** entries are limit orders at the bid (buys and shorts), cancelled
+  if not filled within 10 seconds; a partial fill keeps what filled. Exits are
+  market orders.
+- **Signals feed:** every strategy signal is published to the signal ledger
+  the website shows, whether or not this bot takes it.
 - **Sizing:** risk 1% of the $1,000 base with a 1% stop → about $1,000 notional,
   whole shares, capped by usable cash. One position at a time.
 

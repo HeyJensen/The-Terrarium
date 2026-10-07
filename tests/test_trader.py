@@ -224,7 +224,7 @@ class EngineReplay(unittest.TestCase):
         self.assertIn("$2,000+", [e for e in log if e["action"] == "skip_signal"][0]["reasoning"])
 
     def test_margin_short_with_easy_to_borrow_check(self):
-        closes = [100 + 0.1 * i for i in range(25)] + [102.4 - 0.1 * i for i in range(45)]
+        closes = [100 + 0.1 * i for i in range(20)] + [101.9 - 0.1 * i for i in range(45)]
         fixtures.write_symbol(self.data, "TSLA", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)}, trend="down")
         engine, broker, log = self.run_engine({"mode": "margin", "after_profit_trigger": "take_profit"},
                                               SimBroker(2500, "margin", slippage_bps=0))
@@ -285,6 +285,44 @@ class EngineReplay(unittest.TestCase):
         self.assertIsNone(engine.position)
         self.assertIn("stale data", [e for e in decisions.read() if e["action"] == "skip_signal"][0]["reasoning"])
 
+    def test_unfilled_bid_is_cancelled_after_timeout(self):
+        closes = fixtures.selloff_then(100, 20, 0.1, [98.2 + 0.1 * i for i in range(30)])
+        fixtures.write_symbol(self.data, "AAPL", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)})
+        engine, broker, log = self.run_engine(broker=SimBroker(1000, "cash", slippage_bps=0, passive_fills="never"))
+        self.assertIsNone(engine.position)
+        unfilled = [e for e in log if e["action"] == "entry_unfilled"]
+        self.assertTrue(unfilled)
+        self.assertIn("not filled within 10s; cancelled", unfilled[0]["reasoning"])
+        self.assertEqual(unfilled[0]["limit_price"], round(unfilled[0]["bid"], 2))
+
+    def test_entry_is_limit_at_bid(self):
+        closes = fixtures.selloff_then(100, 20, 0.1, [98.2 + 0.1 * i for i in range(30)])
+        fixtures.write_symbol(self.data, "AAPL", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)})
+        _, broker, log = self.run_engine(broker=SimBroker(1000, "cash", slippage_bps=0, spread_bps=10))
+        entry = [e for e in log if e["action"] == "entry"][0]
+        self.assertEqual(entry["entry_price"], entry["limit_price"])
+        self.assertLess(entry["limit_price"], entry["reference_price"])  # at the bid, under the last trade
+
+    def test_signal_ledger_scores_every_signal(self):
+        # Two names signal; the bot can only hold one, but the ledger tracks both.
+        up = [98.2 + 0.1 * i for i in range(40)]
+        closes = fixtures.selloff_then(100, 20, 0.1, up + [up[-1] - 0.1 * i for i in range(1, 30)])
+        fixtures.write_symbol(self.data, "AAPL", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)})
+        fixtures.write_symbol(self.data, "MSFT", {MON: fixtures.path_bars(fixtures.pad(closes), 40_000)})
+        engine, broker, log = self.run_engine()
+        self.assertEqual(len([e for e in log if e["action"] == "entry"]), 1)
+        # The first selloff signals both names (the later decline signals them again).
+        ledger = [s for s in engine.signals.recent() if s["ts"] == min(x["ts"] for x in engine.signals.recent())]
+        self.assertEqual(sorted(s["symbol"] for s in ledger), ["AAPL", "MSFT"])
+        for s in ledger:
+            self.assertEqual(set(s), {"id", "agent", "ts", "symbol", "side", "price", "rsi", "rel_volume", "status",
+                                      "last_price", "best_pct", "pnl_pct", "exit_price", "exit_ts", "exit_reason"})
+            self.assertEqual(s["side"], "buy")
+            self.assertEqual(s["status"], "closed")
+            self.assertEqual(s["exit_reason"], "trailing stop")
+            self.assertGreater(s["pnl_pct"], 0.9)
+            self.assertGreaterEqual(s["best_pct"], 2.0)
+
     def test_overnight_gap_trips_kill_switch_and_flattens(self):
         day1 = fixtures.selloff_then(100, 20, 0.1, [98.1])  # enters long ~98.1, holds flat
         day2 = [94.0] * 10                                  # gaps down ~4% at the open
@@ -322,6 +360,28 @@ class EngineReplay(unittest.TestCase):
         self.assertTrue(log)
         for e in log:
             self.assertIn("ts", e); self.assertIn("reasoning", e); self.assertIn("action", e)
+
+
+class ConsoleView(unittest.TestCase):
+    def test_console_shows_requirements(self):
+        from agents.trader.console import render
+        t = EngineReplay(); t.setUp()
+        try:
+            closes = fixtures.selloff_then(100, 20, 0.1, [98.2 + 0.1 * i for i in range(30)])
+            fixtures.write_symbol(t.data, "AAPL", {MON: fixtures.path_bars(fixtures.pad(closes), 50_000)})
+            feed = ReplayFeed(t.data)
+            engine = TraderEngine({**BASE_CFG}, SimBroker(1000, "cash", slippage_bps=0, passive_fills="never"), feed,
+                                  feed.symbols(), t.root / "state", DecisionLog("trader", log_dir=t.root / "logs"),
+                                  t.logger, Notifier({}, t.logger))
+            at = datetime(2026, 10, 5, 9, 46, tzinfo=ET)
+            engine.step(at)
+            text = render(engine, at, "dry_run")
+            self.assertIn("DRY RUN", text)
+            self.assertIn("AAPL", text)
+            self.assertIn("READY → BUY", text)
+            self.assertIn("Latest signals", text)
+        finally:
+            t.tearDown()
 
 
 class LoggingAndAlerts(unittest.TestCase):
@@ -380,7 +440,7 @@ class DashboardAPI(unittest.TestCase):
         self.assertEqual(got, status)
         self.assertEqual(sorted(got), sorted(["name", "status", "current_task", "tasks_today", "pnl", "last_updated"]))
         code, dash = self.req("/api/dashboard")
-        self.assertEqual(set(dash), {"agents", "outbox", "heartbeat"})
+        self.assertEqual(set(dash), {"agents", "outbox", "heartbeat", "signals"})
         self.assertEqual(dash["heartbeat"][0]["events"], 1)
 
     def test_rejects_bad_shape_unknown_agent_and_bad_token(self):
@@ -388,6 +448,13 @@ class DashboardAPI(unittest.TestCase):
         self.assertEqual(self.req("/api/agents/trader/status", {**status, "extra": 1})[0], 400)
         self.assertEqual(self.req("/api/agents/ghost/status", {**status, "name": "ghost"})[0], 404)
         self.assertEqual(self.req("/api/agents/trader/status", status, token="wrong")[0], 401)
+
+    def test_signals_feed(self):
+        sig = {"id": "s1NVDA", "agent": "trader", "ts": "2026-10-07T14:31:00+00:00", "symbol": "NVDA", "side": "buy"}
+        self.assertEqual(self.req("/api/signals", {"agent": "trader", "signals": [sig]})[0], 200)
+        self.assertEqual(self.req("/api/signals")[1], [sig])
+        self.assertEqual(self.req("/api/dashboard")[1]["signals"], [sig])
+        self.assertEqual(self.req("/api/signals", {"agent": "ghost", "signals": []})[0], 400)
 
     def test_outbox(self):
         self.assertEqual(self.req("/api/outbox", {"agent": "trader", "title": "Closed AAPL +$20"})[0], 201)

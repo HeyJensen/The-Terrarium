@@ -1,5 +1,16 @@
 # Changelog: the Terrarium build log
 
+## 2026-10-07: The Trader console
+
+- `python terrarium.py` starts everything: it loads the day's price history,
+  then every minute shows the top 10 stocks and which requirements each one
+  meets (RSI, trend, fresh data, side allowed, no open trade).
+- Entries are now **limit orders at the bid**, cancelled if they don't fill
+  in 10 seconds. Still one trade at a time. Stops exit at market.
+- Every signal is published to a **signal ledger** for the website, each
+  scored as a $1,000 trade, even ones the bot can't take.
+- Still a dry run: orders are simulated.
+
 ## 2026-10-07: Phase 2 commerce bots, draft-only
 
 - Four new agents: **Social** (trends in, promo posts out), **Etsy research**

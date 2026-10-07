@@ -16,11 +16,19 @@ organism/
 
 Python 3.11+, standard library only. No dependencies to install.
 
+## Run the Trader console
+
+```bash
+python terrarium.py      # scans Yahoo every minute, shows each requirement, simulated orders
+```
+
+Sharing it with others, and what to watch out for: `docs/sharing-the-trader.md`.
+
 ## Quick start
 
 ```bash
 cp config/.env.example config/.env       # fill in values; the file is git-ignored
-python -m unittest                        # 38 tests
+python -m unittest                        # all tests
 python agents/trader/run.py --task check  # shows limits and whether live orders are possible
 python -m dashboard.server                # http://127.0.0.1:8787/api/dashboard
 

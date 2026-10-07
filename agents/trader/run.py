@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from shared.config import ROOT, env, load_settings  # noqa: E402
-from shared.dashboard_client import build_status, post_status  # noqa: E402
+from shared.dashboard_client import build_status, post_signals, post_status  # noqa: E402
 from shared.logger import DecisionLog, get_logger  # noqa: E402
 from shared.notifications import Notifier  # noqa: E402
 from shared.risk import effective_limits  # noqa: E402
@@ -25,6 +25,7 @@ from shared.risk import effective_limits  # noqa: E402
 from agents.trader.broker import SimBroker  # noqa: E402
 from agents.trader.data_feed import ReplayFeed  # noqa: E402
 from agents.trader.yahoo_feed import YahooFeed  # noqa: E402
+from agents.trader.console import render as render_console  # noqa: E402
 from agents.trader.engine import TraderEngine  # noqa: E402
 
 AGENT = "trader"
@@ -42,9 +43,19 @@ def make_reporter(logger):
     return report
 
 
-def build_engine(settings, broker, feed, universe, state_dir, logger, report=False, decisions=None):
+def build_engine(settings, broker, feed, universe, state_dir, logger, report=False, decisions=None, sleep=None):
+    sink = (lambda signals: post_signals(AGENT, signals, logger)) if report else None
     return TraderEngine(settings["trader"], broker, feed, universe, state_dir, decisions or DecisionLog(AGENT),
-                        logger, Notifier(settings, logger), reporter=make_reporter(logger) if report else None)
+                        logger, Notifier(settings, logger), reporter=make_reporter(logger) if report else None,
+                        signal_sink=sink, sleep=sleep)
+
+
+def latest_bar_range(feed):
+    """For the simulator: did price trade through a resting limit in the latest bar?"""
+    def source(symbol, now):
+        bars = feed.minute_bars(symbol, now)
+        return (bars[-1].low, bars[-1].high) if bars else None
+    return source
 
 
 def routing_problem(cfg: dict) -> str | None:
@@ -77,7 +88,8 @@ def task_replay(settings, data_dir: Path, state_dir: Path, report: bool) -> int:
     cfg = settings["trader"]
     logger = get_logger(AGENT)
     feed = ReplayFeed(data_dir)
-    broker = SimBroker(cfg["account_size_usd"], account_type=cfg["mode"], slippage_bps=cfg.get("sim_slippage_bps", 5))
+    broker = SimBroker(cfg["account_size_usd"], account_type=cfg["mode"], slippage_bps=cfg.get("sim_slippage_bps", 5),
+                       price_source=latest_bar_range(feed))
     universe = [s for s in load_universe(cfg) if s in set(feed.symbols())] or feed.symbols()
     # Replay keeps its decisions next to its own state so it never mixes with the live audit trail.
     engine = build_engine(settings, broker, feed, universe, state_dir, logger, report,
@@ -108,7 +120,7 @@ def task_prefetch(settings) -> int:
     return 0 if failed == 0 else 1
 
 
-def task_trade(settings, report: bool) -> int:
+def task_trade(settings, report: bool, console: bool = True) -> int:
     """The live loop: real Yahoo data every minute.
 
     dry_run: orders go to the simulator (no money moves); its cash and
@@ -129,13 +141,17 @@ def task_trade(settings, report: bool) -> int:
     sim_path = DEFAULT_STATE / "sim_broker.json"
     broker = SimBroker.load_or_new(sim_path, cfg["account_size_usd"], cfg["mode"], cfg.get("sim_slippage_bps", 5))
     feed = make_yahoo_feed(settings, logger)
-    engine = build_engine(settings, broker, feed, load_universe(cfg), DEFAULT_STATE, logger, report)
+    broker.price_source = latest_bar_range(feed)
+    engine = build_engine(settings, broker, feed, load_universe(cfg), DEFAULT_STATE, logger, report, sleep=time.sleep)
     logger.info("trader running in DRY RUN on Yahoo Finance data; no orders reach any broker. Ctrl+C to stop.")
     interval = int(cfg.get("loop_interval_seconds", 60))
     try:
         while True:
-            engine.step(datetime.now(timezone.utc))
+            now = datetime.now(timezone.utc)
+            engine.step(now)
             broker.save(sim_path)
+            if console:
+                print("\033[2J\033[H" + render_console(engine, now, cfg["order_routing"]), flush=True)
             # Wake a few seconds after each minute boundary so the last bar has closed.
             time.sleep(interval - (time.time() % interval) + 3)
     except KeyboardInterrupt:
@@ -150,7 +166,8 @@ def main(argv=None) -> int:
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--data", type=Path, help="replay data directory")
     ap.add_argument("--state-dir", type=Path, default=None)
-    ap.add_argument("--report", action="store_true", help="post status to the dashboard API")
+    ap.add_argument("--report", action="store_true", help="post status and signals to the dashboard API")
+    ap.add_argument("--no-console", action="store_true", help="log only, no live console view")
     args = ap.parse_args(argv)
     settings = load_settings()
 
@@ -172,7 +189,7 @@ def main(argv=None) -> int:
     if args.task == "prefetch":
         return task_prefetch(settings)
     if args.task == "trade":
-        return task_trade(settings, args.report)
+        return task_trade(settings, args.report, console=not args.no_console)
     ap.print_help()
     return 1
 

@@ -51,3 +51,20 @@ def post_outbox(agent: str, title: str, detail: str, logger=None, base_url: str 
         if logger:
             logger.warning(f"dashboard outbox post failed: {type(e).__name__}")
         return False
+
+
+def post_signals(agent: str, signals: list[dict], logger=None, base_url: str | None = None) -> bool:
+    base_url = base_url or env("DASHBOARD_URL") or "http://127.0.0.1:8787"
+    req = urllib.request.Request(
+        f"{base_url}/api/signals",
+        data=json.dumps({"agent": agent, "signals": signals}).encode(),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {env('DASHBOARD_TOKEN') or ''}"},
+        method="POST",
+    )
+    try:
+        urllib.request.urlopen(req, timeout=5).close()
+        return True
+    except Exception as e:
+        if logger:
+            logger.warning(f"dashboard signals post failed: {type(e).__name__}")
+        return False

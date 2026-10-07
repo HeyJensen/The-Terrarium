@@ -10,7 +10,9 @@ until the human decides how to expose it.
   GET  /api/outbox                     finished-work feed, newest first
   POST /api/outbox                     {agent,title,detail}
   GET  /api/heartbeat                  activity series: [{minute, events}] for the last 24h
-  GET  /api/dashboard                  {agents, outbox, heartbeat} in one call
+  GET  /api/signals                    every-signal ledger, newest first (shape: website/README.md)
+  POST /api/signals                    {agent, signals: [...]} replaces that agent's ledger
+  GET  /api/dashboard                  {agents, outbox, heartbeat, signals} in one call
   GET  /healthz
 
 POSTs need "Authorization: Bearer $DASHBOARD_TOKEN" when DASHBOARD_TOKEN is set.
@@ -32,6 +34,7 @@ from shared.logger import get_logger
 DATA_DIR = ROOT / "dashboard" / "data"
 MANIFEST = ROOT / "agents" / "manifest.json"
 OUTBOX_MAX = 200
+SIGNALS_MAX = 500
 HEARTBEAT_WINDOW = timedelta(hours=24)
 NAME_RE = re.compile(r"^[a-z][a-z0-9_-]{0,40}$")
 
@@ -62,7 +65,7 @@ class Store:
         self.manifest = manifest
         self.lock = threading.Lock()
         data_dir.mkdir(parents=True, exist_ok=True)
-        self.data = {"agents": {}, "outbox": [], "heartbeat": {}}
+        self.data = {"agents": {}, "outbox": [], "heartbeat": {}, "signals": {}}
         if self.path.exists():
             self.data.update(json.loads(self.path.read_text()))
 
@@ -117,6 +120,16 @@ class Store:
         with self.lock:
             return list(self.data["outbox"])
 
+    def set_signals(self, agent: str, signals: list[dict]) -> None:
+        with self.lock:
+            self.data.setdefault("signals", {})[agent] = signals[:SIGNALS_MAX]
+            self._save()
+
+    def signals(self) -> list[dict]:
+        with self.lock:
+            rows = [s for sigs in self.data.get("signals", {}).values() for s in sigs]
+        return sorted(rows, key=lambda s: s.get("ts", ""), reverse=True)
+
     def heartbeat(self) -> list[dict]:
         with self.lock:
             return [{"minute": k, "events": v} for k, v in sorted(self.data["heartbeat"].items())]
@@ -169,9 +182,11 @@ def make_handler(store: Store, logger):
                 return self._send(200, store.outbox())
             if parts == ["api", "heartbeat"]:
                 return self._send(200, store.heartbeat())
+            if parts == ["api", "signals"]:
+                return self._send(200, store.signals())
             if parts == ["api", "dashboard"]:
                 return self._send(200, {"agents": store.agents(), "outbox": store.outbox(),
-                                        "heartbeat": store.heartbeat()})
+                                        "heartbeat": store.heartbeat(), "signals": store.signals()})
             return self._send(404, {"error": "not found"})
 
         def do_POST(self):
@@ -187,6 +202,12 @@ def make_handler(store: Store, logger):
                     status = validate_status(name, body)
                     store.set_status(name, status)
                     return self._send(200, status)
+                if parts == ["api", "signals"]:
+                    agent, sigs = body.get("agent"), body.get("signals")
+                    if agent not in store.registered_agents() or not isinstance(sigs, list):
+                        return self._send(400, {"error": "need a registered agent and a signals list"})
+                    store.set_signals(agent, sigs)
+                    return self._send(200, {"stored": min(len(sigs), SIGNALS_MAX)})
                 if parts == ["api", "outbox"]:
                     if body.get("agent") not in store.registered_agents() or not body.get("title"):
                         return self._send(400, {"error": "need a registered agent and a title"})
