@@ -5,8 +5,10 @@ name: Terrarium scanner
 
 on:
   schedule:
-    - cron: "15 13 * * 1-5"   # before the open (9:15 ET in summer, 8:15 ET in winter)
-    - cron: "50 18 * * 1-5"   # second leg: GitHub stops a job after 6 hours
+    # GitHub's free schedules can start late or skip a slot, so ask every half hour
+    # through the trading day. Only one run scans at a time (see concurrency);
+    # extra starts wait their turn and take over if a run ends or never began.
+    - cron: "15,45 13-20 * * 1-5"
   workflow_dispatch:
 
 concurrency:

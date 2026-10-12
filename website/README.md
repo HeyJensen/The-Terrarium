@@ -135,3 +135,10 @@ Optional: `WHISPER_MODEL` (default `base.en`), `FISH_AUDIO_MODEL`, `VOICE_PORT`.
 The key stays on your computer; it never goes into the site or the repo.
 Agents can call the same functions: `from website.voice_server import transcribe, speak`.
 Only pages on heyjensen.github.io, localhost, or opened as a local file can use the server.
+
+**Making the voice sound natural.** With the voice server and a Fish Audio key,
+answers use Fish Audio, which is the most human option; set `FISH_AUDIO_VOICE_ID`
+to a voice you like from the fish.audio library. Without it, the site picks the
+best voice your device has. Microsoft Edge's "Natural" voices and Apple's
+Premium or Enhanced voices sound far better than the defaults. On iPhone, add one
+under Settings, Accessibility, Spoken Content, Voices, English.
