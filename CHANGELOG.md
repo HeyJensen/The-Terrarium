@@ -1,5 +1,12 @@
 # Changelog: the Terrarium build log
 
+## 2026-10-12: Builder's first weekly run
+
+- Every bot passed the builder's audit.
+- Three new ideas in the catalog, each with its sources: Notion templates
+  (score 6), Amazon Merch on Demand t-shirts (5, entry by application) and
+  Adobe Stock images (3, ranked last because it needs an image tool).
+
 ## 2026-10-07: The Builder, a bot that grows the Terrarium
 
 - New `agents/builder`: audits every bot against the house rules (prompt.md,
