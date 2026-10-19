@@ -1,5 +1,12 @@
 # Changelog: the Terrarium build log
 
+## 2026-10-19: Builder weekly run
+
+- Every bot passed the builder's audit again.
+- Two new ideas in the catalog: Canva templates through the Canva Creators
+  program (score 4, entry by portfolio review) and classroom printables on
+  Teachers Pay Teachers (4, has a setup fee).
+
 ## 2026-10-12: Builder's first weekly run
 
 - Every bot passed the builder's audit.

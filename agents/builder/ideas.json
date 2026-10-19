@@ -256,6 +256,56 @@
         "https://helpx.adobe.com/stock/contributor/submit-your-content/submit-generative-ai-content/generative-ai-content-guidelines.html"
       ],
       "added": "2026-10-12"
+    },
+    {
+      "id": "canva-creators",
+      "name": "canvatemplates",
+      "title": "Canva templates through the Canva Creators program",
+      "stream": "digital",
+      "pitch": "Canva pays template creators monthly from a royalty pool, based on how often their templates are used, on Free and Pro plans alike. You join by sending a portfolio, and Canva says an answer can take a couple of months. The bot turns the studio's printable designs into template briefs (social posts, planners, flyers) and drafts the portfolio.",
+      "reuses": [
+        "studio",
+        "social"
+      ],
+      "needs": [
+        "account"
+      ],
+      "potential": 3,
+      "speed": 1,
+      "reuse": 3,
+      "cost": 1,
+      "risk": 2,
+      "sources": [
+        "https://www.canva.com/help/article/canva-creators-program"
+      ],
+      "caution": "Canva shares its review guidelines, including any AI rules, only after you're accepted.",
+      "added": "2026-10-19"
+    },
+    {
+      "id": "tpt-printables",
+      "name": "classroom",
+      "title": "Classroom printables on Teachers Pay Teachers",
+      "stream": "digital",
+      "pitch": "Teachers buy worksheets, planners and classroom decor. A 2026 guide says the Basic seller plan keeps 55% of each sale plus a per-item transaction fee and has a one-time setup fee; Premium keeps 80% for a yearly fee. The bot drafts printable packs and listings from the studio's printable pipeline.",
+      "reuses": [
+        "studio",
+        "brain",
+        "approval queue"
+      ],
+      "needs": [
+        "account",
+        "paid_service"
+      ],
+      "potential": 3,
+      "speed": 2,
+      "reuse": 3,
+      "cost": 2,
+      "risk": 2,
+      "sources": [
+        "https://designbeep.com/2026/06/15/teachers-pay-teachers/"
+      ],
+      "caution": "Fees come from a third-party guide; check TpT's own seller page before signing up.",
+      "added": "2026-10-19"
     }
   ]
 }
