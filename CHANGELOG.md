@@ -1,5 +1,11 @@
 # Changelog: the Terrarium build log
 
+## 2026-10-26: Builder weekly run
+
+- Every bot passed the builder's audit.
+- New idea: repeat patterns for fabric and wallpaper on Spoonflower (score
+  4). Seller applications reopen around mid-December 2026.
+
 ## 2026-10-19: Builder weekly run
 
 - Every bot passed the builder's audit again.

@@ -306,6 +306,31 @@
       ],
       "caution": "Fees come from a third-party guide; check TpT's own seller page before signing up.",
       "added": "2026-10-19"
+    },
+    {
+      "id": "spoonflower",
+      "name": "patterns",
+      "title": "Repeat patterns for fabric and wallpaper on Spoonflower",
+      "stream": "etsy",
+      "pitch": "Spoonflower prints a seller's repeat patterns on fabric, wallpaper and home decor and pays royalties (as Spoonflower credit, cashed out to PayPal from $10). Sellers apply with 5 designs and tax forms, approve a digital proof of every design, and can list up to 50 designs a week. The bot drafts pattern briefs from the niches board and writes titles and tags.",
+      "reuses": [
+        "etsy",
+        "niches board",
+        "studio"
+      ],
+      "needs": [
+        "account"
+      ],
+      "potential": 3,
+      "speed": 1,
+      "reuse": 3,
+      "cost": 1,
+      "risk": 2,
+      "sources": [
+        "https://support.spoonflower.com/hc/en-us/articles/204444520"
+      ],
+      "caution": "Seller applications are paused until about mid-December 2026, and the help page doesn't say whether AI-made designs are allowed.",
+      "added": "2026-10-26"
     }
   ]
 }
