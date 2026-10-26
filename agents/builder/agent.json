@@ -1,0 +1,14 @@
+{
+  "name": "builder",
+  "type": "ops",
+  "description": "Keeps the Terrarium healthy and growing: audits every bot, ranks new money-making bot ideas for Nathan to approve, and scaffolds the approved ones in draft-only mode.",
+  "version": "0.1.0",
+  "entrypoint": "agents/builder/run.py",
+  "stream": "ops",
+  "config_schema": {
+    "publishing_mode": {"type": "string", "enum": ["draft_only"], "default": "draft_only"},
+    "ideas_per_run": {"type": "integer", "default": 3},
+    "min_idea_score": {"type": "integer", "default": 3},
+    "stale_approval_days": {"type": "integer", "default": 3}
+  }
+}

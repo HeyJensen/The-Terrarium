@@ -1,0 +1,336 @@
+{
+  "note": "Ratings are 1-5 estimates, not research results. cost 1 = free to start; risk 1 = low. The weekly builder routine adds new ideas here.",
+  "ideas": [
+    {
+      "id": "pinterest",
+      "name": "pinterest",
+      "title": "Pinterest pins for every approved listing and blog post",
+      "stream": "social",
+      "pitch": "Pinterest is a search engine for products and how-to posts, and pins keep sending traffic for months. The bot drafts 3-5 pin titles, descriptions and image prompts for each approved Etsy listing and blog post.",
+      "reuses": [
+        "approval queue",
+        "studio",
+        "content"
+      ],
+      "needs": [
+        "public_posting",
+        "account"
+      ],
+      "potential": 3,
+      "speed": 3,
+      "reuse": 5,
+      "cost": 1,
+      "risk": 1
+    },
+    {
+      "id": "redbubble",
+      "name": "marketplaces",
+      "title": "Same designs on Redbubble and TeePublic",
+      "stream": "etsy",
+      "pitch": "The studio's approved t-shirt designs can also sell on free print-on-demand marketplaces with no listing fees. The bot exports a per-marketplace sheet (title, tags, description) for manual upload, like the Printify sheet.",
+      "reuses": [
+        "studio",
+        "approval queue"
+      ],
+      "needs": [
+        "account"
+      ],
+      "potential": 3,
+      "speed": 3,
+      "reuse": 5,
+      "cost": 1,
+      "risk": 2
+    },
+    {
+      "id": "kdp-low-content",
+      "name": "kdp",
+      "title": "Amazon KDP low-content books (journals, planners, logbooks)",
+      "stream": "kdp",
+      "pitch": "Publishing on Kindle Direct Publishing is free and Amazon prints on demand. The bot picks niches from the niches board and drafts interior layouts, titles, keywords and cover prompts for journals and logbooks.",
+      "reuses": [
+        "etsy",
+        "niches board",
+        "brain"
+      ],
+      "needs": [
+        "account"
+      ],
+      "potential": 4,
+      "speed": 2,
+      "reuse": 4,
+      "cost": 1,
+      "risk": 2
+    },
+    {
+      "id": "gumroad-digital",
+      "name": "digital",
+      "title": "Digital products on Gumroad (templates, planners, trading journal)",
+      "stream": "digital",
+      "pitch": "No upfront cost, Gumroad takes a fee only on sales. Start with a trading journal spreadsheet built from the Trader's own rules, then printables the studio already designs.",
+      "reuses": [
+        "studio",
+        "trader",
+        "social"
+      ],
+      "needs": [
+        "account",
+        "public_posting"
+      ],
+      "potential": 3,
+      "speed": 3,
+      "reuse": 4,
+      "cost": 1,
+      "risk": 1
+    },
+    {
+      "id": "newsletter",
+      "name": "newsletter",
+      "title": "Weekly email newsletter",
+      "stream": "content",
+      "pitch": "A free-tier newsletter (Beehiiv or Substack) owns the audience the social bot and blog build. The bot drafts a weekly issue from new blog posts, shop items and the build log; sponsorships come once the list grows.",
+      "reuses": [
+        "content",
+        "social",
+        "CHANGELOG"
+      ],
+      "needs": [
+        "account",
+        "public_posting"
+      ],
+      "potential": 4,
+      "speed": 1,
+      "reuse": 4,
+      "cost": 1,
+      "risk": 1
+    },
+    {
+      "id": "fiverr-gigs",
+      "name": "gigs",
+      "title": "Fiverr gigs drafted and fulfilled with human review",
+      "stream": "gigs",
+      "pitch": "Fiverr was already on the plan. The bot researches gig categories AI does well (product descriptions, blog drafts, resume polish), drafts gig pages, and drafts each delivery for a human to check before it goes out.",
+      "reuses": [
+        "brain",
+        "approval queue"
+      ],
+      "needs": [
+        "account",
+        "public_posting"
+      ],
+      "potential": 4,
+      "speed": 2,
+      "reuse": 2,
+      "cost": 1,
+      "risk": 3
+    },
+    {
+      "id": "short-video",
+      "name": "shorts",
+      "title": "Short video scripts from blog posts",
+      "stream": "social",
+      "pitch": "Turns each approved blog post into 3 short video scripts with shot lists. Recording or a video tool comes later and may cost money.",
+      "reuses": [
+        "content",
+        "social"
+      ],
+      "needs": [
+        "public_posting",
+        "paid_service"
+      ],
+      "potential": 3,
+      "speed": 2,
+      "reuse": 4,
+      "cost": 3,
+      "risk": 2
+    },
+    {
+      "id": "bookkeeper",
+      "name": "bookkeeper",
+      "title": "Bookkeeper: one money ledger for every stream",
+      "stream": "ops",
+      "pitch": "Earns nothing directly but tells us which bots do. Reads Etsy, Printify, Buffer and Trader exports you drop in an inbox and keeps one profit and cost ledger per stream for the dashboard.",
+      "reuses": [
+        "trader",
+        "dashboard",
+        "inbox files"
+      ],
+      "needs": [],
+      "potential": 2,
+      "speed": 4,
+      "reuse": 4,
+      "cost": 1,
+      "risk": 1
+    },
+    {
+      "id": "signal-subscription",
+      "name": "signals",
+      "title": "Paid trade-signal subscription",
+      "stream": "trading",
+      "pitch": "Selling the Trader's signals. Blocked, kept so it is never proposed.",
+      "reuses": [
+        "trader",
+        "website"
+      ],
+      "needs": [
+        "public_posting",
+        "paid_service"
+      ],
+      "potential": 4,
+      "speed": 2,
+      "reuse": 5,
+      "cost": 3,
+      "risk": 5,
+      "blocked": "Selling trade advice can require adviser registration, and Yahoo data is personal-use only."
+    },
+    {
+      "id": "notion-templates",
+      "name": "templates",
+      "title": "Notion templates (trading journal, shop planner) on the Notion Marketplace",
+      "stream": "digital",
+      "pitch": "Listing on the Notion Marketplace costs nothing up front; Notion keeps 8% + $0.40 per sale. Selling directly through Notion needs a waitlist approval that can take months, so paid templates start by linking to Gumroad. The bot drafts the template structure, listing copy and screenshots checklist from the Trader's rules and the studio's planners.",
+      "reuses": [
+        "trader",
+        "studio",
+        "gumroad idea"
+      ],
+      "needs": [
+        "account",
+        "public_posting"
+      ],
+      "potential": 3,
+      "speed": 2,
+      "reuse": 3,
+      "cost": 1,
+      "risk": 1,
+      "sources": [
+        "https://www.notion.com/help/selling-on-marketplace"
+      ],
+      "added": "2026-10-12"
+    },
+    {
+      "id": "amazon-merch",
+      "name": "merch",
+      "title": "Amazon Merch on Demand t-shirts",
+      "stream": "etsy",
+      "pitch": "No sign-up, monthly or listing fee; Amazon prints and ships and pays a royalty (about $2-5 on a $19.99 shirt). Entry is by application, reportedly 2-8 weeks with roughly a third approved, and new accounts can list only 10 designs until they sell. The bot reuses the studio's approved designs and writes Amazon-style titles and bullets.",
+      "reuses": [
+        "studio",
+        "approval queue"
+      ],
+      "needs": [
+        "account"
+      ],
+      "potential": 4,
+      "speed": 1,
+      "reuse": 4,
+      "cost": 1,
+      "risk": 3,
+      "sources": [
+        "https://merch.amazon.com",
+        "https://amzprep.com/amazon-merch-on-demand/"
+      ],
+      "caution": "A third-party guide says AI artwork in application samples gets rejected; apply with designs a person made or edited.",
+      "added": "2026-10-12"
+    },
+    {
+      "id": "adobe-stock",
+      "name": "stock",
+      "title": "Stock images and vectors on Adobe Stock",
+      "stream": "stock",
+      "pitch": "Adobe Stock accepts generative AI images if they are labeled as AI, the tool's terms allow commercial use, and no real people, brands or artist names appear in prompts, titles or keywords. The bot writes titles and keywords and checks those rules; making the images needs an image tool, which is still an open decision.",
+      "reuses": [
+        "studio",
+        "brain",
+        "IP blocklist"
+      ],
+      "needs": [
+        "account",
+        "paid_service"
+      ],
+      "potential": 2,
+      "speed": 2,
+      "reuse": 3,
+      "cost": 2,
+      "risk": 2,
+      "sources": [
+        "https://helpx.adobe.com/stock/contributor/submit-your-content/submit-generative-ai-content/generative-ai-content-guidelines.html"
+      ],
+      "added": "2026-10-12"
+    },
+    {
+      "id": "canva-creators",
+      "name": "canvatemplates",
+      "title": "Canva templates through the Canva Creators program",
+      "stream": "digital",
+      "pitch": "Canva pays template creators monthly from a royalty pool, based on how often their templates are used, on Free and Pro plans alike. You join by sending a portfolio, and Canva says an answer can take a couple of months. The bot turns the studio's printable designs into template briefs (social posts, planners, flyers) and drafts the portfolio.",
+      "reuses": [
+        "studio",
+        "social"
+      ],
+      "needs": [
+        "account"
+      ],
+      "potential": 3,
+      "speed": 1,
+      "reuse": 3,
+      "cost": 1,
+      "risk": 2,
+      "sources": [
+        "https://www.canva.com/help/article/canva-creators-program"
+      ],
+      "caution": "Canva shares its review guidelines, including any AI rules, only after you're accepted.",
+      "added": "2026-10-19"
+    },
+    {
+      "id": "tpt-printables",
+      "name": "classroom",
+      "title": "Classroom printables on Teachers Pay Teachers",
+      "stream": "digital",
+      "pitch": "Teachers buy worksheets, planners and classroom decor. A 2026 guide says the Basic seller plan keeps 55% of each sale plus a per-item transaction fee and has a one-time setup fee; Premium keeps 80% for a yearly fee. The bot drafts printable packs and listings from the studio's printable pipeline.",
+      "reuses": [
+        "studio",
+        "brain",
+        "approval queue"
+      ],
+      "needs": [
+        "account",
+        "paid_service"
+      ],
+      "potential": 3,
+      "speed": 2,
+      "reuse": 3,
+      "cost": 2,
+      "risk": 2,
+      "sources": [
+        "https://designbeep.com/2026/06/15/teachers-pay-teachers/"
+      ],
+      "caution": "Fees come from a third-party guide; check TpT's own seller page before signing up.",
+      "added": "2026-10-19"
+    },
+    {
+      "id": "spoonflower",
+      "name": "patterns",
+      "title": "Repeat patterns for fabric and wallpaper on Spoonflower",
+      "stream": "etsy",
+      "pitch": "Spoonflower prints a seller's repeat patterns on fabric, wallpaper and home decor and pays royalties (as Spoonflower credit, cashed out to PayPal from $10). Sellers apply with 5 designs and tax forms, approve a digital proof of every design, and can list up to 50 designs a week. The bot drafts pattern briefs from the niches board and writes titles and tags.",
+      "reuses": [
+        "etsy",
+        "niches board",
+        "studio"
+      ],
+      "needs": [
+        "account"
+      ],
+      "potential": 3,
+      "speed": 1,
+      "reuse": 3,
+      "cost": 1,
+      "risk": 2,
+      "sources": [
+        "https://support.spoonflower.com/hc/en-us/articles/204444520"
+      ],
+      "caution": "Seller applications are paused until about mid-December 2026, and the help page doesn't say whether AI-made designs are allowed.",
+      "added": "2026-10-26"
+    }
+  ]
+}
