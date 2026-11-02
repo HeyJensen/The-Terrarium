@@ -43,6 +43,10 @@ Phase 2 commerce bots (social, etsy, studio, content) run in draft-only mode;
 see `docs/phase2-commerce-bots.md` for how they connect and how to try them.
 Review their drafts with `python -m agents.common.approvals list`.
 
+The builder (`agents/builder`) audits the bots and proposes new ones:
+`python agents/builder/run.py --task audit`, `--task ideas`, and
+`--task scaffold --idea <approval id>` for an idea you approved.
+
 ## Safety switches
 
 - `trader.order_routing` is `dry_run` by default. Live orders need it set to
