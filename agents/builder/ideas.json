@@ -331,6 +331,57 @@
       ],
       "caution": "Seller applications are paused until about mid-December 2026, and the help page doesn't say whether AI-made designs are allowed.",
       "added": "2026-10-26"
+    },
+    {
+      "id": "printify-popup",
+      "name": "popup",
+      "title": "Printify Pop-Up Store: our own shirt shop with no Etsy fees",
+      "stream": "etsy",
+      "pitch": "Printify's Pop-Up Store is a free standalone shop (name.printify.me) with no upfront cost and no listing fees; buyers pay by card, and after production and shipping our earnings are paid out monthly. It reuses the studio's approved designs and the Printify account we already planned, and the social bot can link to it instead of paying $0.20 per Etsy listing.",
+      "reuses": [
+        "studio",
+        "social",
+        "Printify account"
+      ],
+      "needs": [
+        "account",
+        "public_posting"
+      ],
+      "potential": 3,
+      "speed": 4,
+      "reuse": 5,
+      "cost": 1,
+      "risk": 2,
+      "sources": [
+        "https://help.printify.com/hc/en-us/articles/12051129478417",
+        "https://help.printify.com/hc/en-us/articles/4483638151569"
+      ],
+      "caution": "USD only, we are the merchant of record (sales tax is on us), and returns aren't supported.",
+      "added": "2026-11-02"
+    },
+    {
+      "id": "udemy-course",
+      "name": "courses",
+      "title": "Udemy courses built from the Terrarium build log",
+      "stream": "content",
+      "pitch": "Publishing on Udemy is free. Instructors keep 97% of sales made through their own coupon or link and 37% of other Udemy sales. The bot drafts a course outline and lesson scripts, for example how the Terrarium's bots were built, for a human to record.",
+      "reuses": [
+        "content",
+        "CHANGELOG"
+      ],
+      "needs": [
+        "account"
+      ],
+      "potential": 3,
+      "speed": 2,
+      "reuse": 2,
+      "cost": 1,
+      "risk": 2,
+      "sources": [
+        "https://support.udemy.com/hc/articles/229605008-Instructor-revenue-share"
+      ],
+      "caution": "Udemy has a GenAI policy for instructors, but I couldn't read its rules on AI voices or avatars.",
+      "added": "2026-11-02"
     }
   ]
 }

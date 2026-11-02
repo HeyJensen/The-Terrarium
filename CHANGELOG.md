@@ -1,5 +1,12 @@
 # Changelog: the Terrarium build log
 
+## 2026-11-02: Builder weekly run
+
+- Every bot passed the builder's audit.
+- New idea near the top of the list: a free **Printify Pop-Up Store** for our
+  shirts (score 9), with no listing fees and no Etsy needed.
+- Also added: Udemy courses built from this build log (score 4).
+
 ## 2026-10-26: Builder weekly run
 
 - Every bot passed the builder's audit.
